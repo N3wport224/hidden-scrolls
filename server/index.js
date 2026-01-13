@@ -24,26 +24,23 @@ app.all('/api/proxy', async (req, res) => {
       url: targetUrl,
       headers: {
         'Authorization': `Bearer ${token}`,
-        'Range': req.headers.range || 'bytes=0-', // Force a range to start the stream
+        'Range': req.headers.range || '',
+        'Content-Type': 'application/json'
       },
+      data: req.body, 
       responseType: 'stream',
       maxRedirects: 5,
       validateStatus: () => true 
     });
 
-    if (response.status >= 400) {
-        console.error(`❌ ABS ERROR [${response.status}]: ${originalPath}`);
-    } else {
-        console.log(`✅ ABS SUCCESS [${response.status}]: ${originalPath}`);
-    }
-
+    // Forward crucial headers for 206 Partial Content streaming
     const forwardHeaders = ['content-type', 'content-range', 'accept-ranges', 'content-length'];
     forwardHeaders.forEach(h => { if (response.headers[h]) res.setHeader(h, response.headers[h]); });
 
     res.status(response.status);
     response.data.pipe(res);
   } catch (error) {
-    console.error("💀 PROXY CRASH:", error.message);
+    console.error("💀 Proxy Error:", error.message);
     if (!res.headersSent) res.status(500).send("Proxy Error");
   }
 });
@@ -51,4 +48,4 @@ app.all('/api/proxy', async (req, res) => {
 app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
 
-app.listen(PORT, () => console.log(`🚀 Final Audited Server on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Handshake Proxy running on port ${PORT}`));
