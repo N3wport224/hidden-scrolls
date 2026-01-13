@@ -9,38 +9,49 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 
-// --- STREAMING PROXY ---
 app.use('/api/proxy', async (req, res) => {
   try {
     const originalPath = req.query.path;
     const targetUrl = `${process.env.ABS_BASE_URL}${originalPath}`;
     
+    // Log the incoming request
     console.log(`📡 Request: ${originalPath}`);
-    if (req.headers.range) console.log(`   ↳ Range: ${req.headers.range}`);
+    if (req.headers.range) {
+      console.log(`   ↳ Client asked for Range: ${req.headers.range}`);
+    }
+
+    // 1. Prepare Headers (Force Capitalization for Strict Servers)
+    const upstreamHeaders = {
+      'Authorization': `Bearer ${process.env.ABS_API_TOKEN}`,
+      'Accept': '*/*',
+      'Accept-Encoding': 'identity', // Disable compression
+      'Connection': 'keep-alive'
+    };
+
+    // 2. Explicitly add Range if the phone asked for it
+    if (req.headers.range) {
+      upstreamHeaders['Range'] = req.headers.range; 
+    }
 
     const response = await axios({
       method: req.method,
       url: targetUrl,
-      headers: {
-        'Authorization': `Bearer ${process.env.ABS_API_TOKEN}`,
-        'Range': req.headers.range || '', 
-        'Accept': '*/*',
-        // CRITICAL: Tells server "Don't compress this" so we can stream it
-        'Accept-Encoding': 'identity' 
-      },
+      headers: upstreamHeaders,
       responseType: 'stream', 
       decompress: false,
       validateStatus: () => true,
     });
 
     console.log(`   ✅ Upstream Status: ${response.status}`);
-    console.log("   ✅ Content-Type:", response.headers['content-type']);
-    
+    console.log(`   ✅ Content-Type: ${response.headers['content-type']}`);
+
+    // 3. Forward the specific streaming headers
     const headersToForward = [
       'content-type',
       'content-length',
       'accept-ranges',
       'content-range',
+      'content-encoding',
       'transfer-encoding'
     ];
 
@@ -50,6 +61,7 @@ app.use('/api/proxy', async (req, res) => {
       }
     });
 
+    // 4. Send the data
     res.status(response.status);
     response.data.pipe(res);
 
