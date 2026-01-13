@@ -10,6 +10,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// --- AUDITED HANDSHAKE PROXY ---
 app.all('/api/proxy', async (req, res) => {
   const originalPath = req.query.path;
   if (!originalPath) return res.status(400).send("Missing path");
@@ -19,25 +20,25 @@ app.all('/api/proxy', async (req, res) => {
   const targetUrl = `${baseUrl}${originalPath.startsWith('/') ? originalPath : '/' + originalPath}`;
   
   try {
-    // Ensure this block is in your server/index.js proxy:
     const response = await axios({
       method: req.method,
       url: targetUrl,
       headers: {
         'Authorization': `Bearer ${token}`,
-        'Range': req.headers.range || 'bytes=0-', // Force range to start the stream
+        'Range': req.headers.range || 'bytes=0-', // Vital for audio streaming
+        'Content-Type': 'application/json'
       },
-      data: req.body,
+      data: req.body, 
       responseType: 'stream',
-      maxRedirects: 5,
+      maxRedirects: 5, // Mandatory for session redirects
       validateStatus: () => true 
     });
 
-    // Logging specifically for diagnostic movement
+    // Detailed Diagnostic Logging
     if (response.status >= 400) {
-        console.error(`❌ ABS ERROR [${response.status}] on: ${originalPath}`);
+      console.error(`❌ ABS ERROR [${response.status}]: ${originalPath}`);
     } else {
-        console.log(`✅ ABS SUCCESS [${response.status}]: ${originalPath}`);
+      console.log(`✅ ABS SUCCESS [${response.status}]: ${originalPath}`);
     }
 
     const forwardHeaders = ['content-type', 'content-range', 'accept-ranges', 'content-length'];

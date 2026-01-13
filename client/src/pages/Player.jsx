@@ -9,24 +9,29 @@ export default function Player() {
   const navigate = useNavigate();
   const [book, setBook] = useState(null);
   const [bluetoothMode, setBluetoothMode] = useState(false);
-  const [sessionReady, setSessionReady] = useState(false);
+  const [sessionId, setSessionId] = useState(null); // Track the handshake ID
   const audioRef = useRef(null);
   const silentRef = useRef(null); 
   
   useEffect(() => {
     fetchBookDetails(id).then(setBook);
     
-    // START PLAYBACK HANDSHAKE
+    // STEP 1: INITIALIZE PLAYBACK HANDSHAKE
     const initSession = async () => {
       try {
         const res = await fetch(getProxyUrl(`/api/items/${id}/play`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ deviceId: 'hidden-scrolls-pi', supportedMimeTypes: ['audio/mpeg'] })
+          body: JSON.stringify({ 
+            deviceId: 'hidden-scrolls-pi', 
+            supportedMimeTypes: ['audio/mpeg'],
+            forceDirectPlay: true 
+          })
         });
-        if (res.ok) {
-          console.log("✅ Playback session initialized");
-          setSessionReady(true);
+        const data = await res.json();
+        if (data.id) {
+          console.log("✅ Playback session initialized:", data.id);
+          setSessionId(data.id); // Save ID for the stream URL
         }
       } catch (err) {
         console.error("❌ Handshake failed:", err);
@@ -51,7 +56,9 @@ export default function Player() {
   const metadata = book.media?.metadata || {};
   const chapters = book.media?.chapters || [];
   const coverUrl = getProxyUrl(`/api/items/${id}/cover`);
-  const audioUrl = getProxyUrl(`/api/items/${id}/stream`);
+  
+  // STEP 2: BUILD STREAM URL WITH SESSION ID
+  const audioUrl = sessionId ? getProxyUrl(`/api/items/${id}/stream/${sessionId}`) : null;
 
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center p-6">
@@ -78,15 +85,15 @@ export default function Player() {
             <audio 
               ref={audioRef} 
               controls 
-              key={sessionReady} // Re-mounts player once session is live
+              key={sessionId} // Forces player reload once session is ready
               className="w-full h-10 invert-[.9]"
               onLoadedMetadata={handleLoadedMetadata}
               onTimeUpdate={() => localStorage.setItem(`progress_${id}`, audioRef.current.currentTime)}
               preload="auto" 
             >
-              {sessionReady && <source src={audioUrl} type="audio/mpeg" />}
+              {audioUrl && <source src={audioUrl} type="audio/mpeg" />}
             </audio>
-            {!sessionReady && <p className="text-center text-xs text-yellow-500 mt-2">Initializing stream...</p>}
+            {!sessionId && <p className="text-center text-xs text-yellow-500 mt-2">Initializing Playback Session...</p>}
         </div>
 
         <div className="w-full">
