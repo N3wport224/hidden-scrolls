@@ -7,21 +7,41 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // This handles the audio streaming perfectly
-app.use('/api/proxy', createProxyMiddleware({
-  target: process.env.ABS_BASE_URL,
-  changeOrigin: true,
-  pathRewrite: (path, req) => req.query.path,
-  // We use the 'headers' option to set the token globally for every proxy request
-  headers: {
-    'Authorization': `Bearer ${process.env.ABS_API_TOKEN.trim()}`
-  },
-  onProxyReq: (proxyReq, req) => {
-    // These headers often cause authentication conflicts when proxying
-    proxyReq.removeHeader('cookie');
-    proxyReq.removeHeader('referer');
-    proxyReq.removeHeader('origin');
+app.get('/api/proxy', async (req, res) => {
+  const originalPath = req.query.path;
+  if (!originalPath) return res.status(400).send("Missing path");
+
+  const targetUrl = `${process.env.ABS_BASE_URL}${originalPath.startsWith('/') ? originalPath : '/' + originalPath}`;
+  
+  try {
+    console.log(`📡 Manual Proxying: ${originalPath}`);
+
+    const response = await axios({
+      method: 'GET',
+      url: targetUrl,
+      headers: {
+        'Authorization': `Bearer ${process.env.ABS_API_TOKEN.trim()}`,
+        'Range': req.headers.range || '',
+        'Accept': '*/*'
+      },
+      responseType: 'stream',
+      validateStatus: () => true // Allow all statuses so we can log them
+    });
+
+    console.log(`   ✅ Status from ABS: ${response.status}`);
+
+    // Forward the content type and streaming headers
+    if (response.headers['content-type']) res.setHeader('content-type', response.headers['content-type']);
+    if (response.headers['content-range']) res.setHeader('content-range', response.headers['content-range']);
+    if (response.headers['accept-ranges']) res.setHeader('accept-ranges', response.headers['accept-ranges']);
+
+    res.status(response.status);
+    response.data.pipe(res);
+  } catch (error) {
+    console.error("💀 Proxy Error:", error.message);
+    res.status(500).send("Proxy Error");
   }
-}));
+});
 
 // Serve the website
 app.use(express.static(path.join(__dirname, '../client/dist')));
