@@ -2,43 +2,32 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
-const compression = require('compression');
-const apicache = require('apicache');
-const path = require('path'); // Required for hosting the site
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const cache = apicache.middleware;
 
 app.use(cors());
-app.use(compression());
+
+// Note: We REMOVED the general compression middleware because it breaks audio streaming
 
 if (!process.env.ABS_BASE_URL || !process.env.ABS_API_TOKEN) {
   console.error("❌ ERROR: Missing .env variables.");
 }
 
-// --- SMART CACHE FILTER ---
-const cacheLogic = cache('5 minutes', (req, res) => {
-    const path = req.query.path || '';
-    return res.statusCode === 200 && 
-           req.method === 'GET' && 
-           !path.includes('/file') && 
-           !path.includes('/cover') &&
-           !path.includes('/play');
-});
-
 // --- API PROXY ROUTE ---
-app.use('/api/proxy', cacheLogic, async (req, res) => {
+app.use('/api/proxy', async (req, res) => {
   try {
-    const originalPath = req.query.path || '/api/items'; 
+    const originalPath = req.query.path;
+    if (!originalPath) return res.status(400).send("Missing path");
+
     const targetUrl = `${process.env.ABS_BASE_URL}${originalPath}`;
     const rangeHeader = req.headers.range;
 
-    console.log(`📡 Fetching: ${originalPath}`);
+    console.log(`📡 Proxying: ${originalPath} ${rangeHeader ? '(Streaming)' : ''}`);
 
     const headers = {
-      'Authorization': `Bearer ${process.env.ABS_API_TOKEN}`,
-      'Content-Type': req.headers['content-type'] || 'application/json'
+      'Authorization': `Bearer ${process.env.ABS_API_TOKEN}`
     };
 
     if (rangeHeader) {
@@ -49,33 +38,41 @@ app.use('/api/proxy', cacheLogic, async (req, res) => {
       method: req.method,
       url: targetUrl,
       headers: headers,
-      responseType: 'stream', 
-      validateStatus: () => true, 
+      responseType: 'stream',
+      decompress: false, // CRITICAL: Prevents corrupting the audio stream
+      validateStatus: () => true, // Accept 200, 206, 404, etc.
     });
 
-    res.set({
-        'Content-Type': response.headers['content-type'],
-        'Content-Length': response.headers['content-length'],
-        'Accept-Ranges': response.headers['accept-ranges'],
-        'Content-Range': response.headers['content-range']
+    // Forward important headers for streaming
+    const headersToForward = [
+      'content-type',
+      'content-length',
+      'accept-ranges',
+      'content-range',
+      'last-modified'
+    ];
+
+    headersToForward.forEach(header => {
+      if (response.headers[header]) {
+        res.setHeader(header, response.headers[header]);
+      }
     });
 
+    // Forward the exact status code (200 or 206)
     res.status(response.status);
+    
+    // Pipe the audio data to the client
     response.data.pipe(res);
 
   } catch (error) {
     console.error("💀 PROXY ERROR:", error.message);
-    if (!res.headersSent) {
-        res.status(500).send("Proxy Error");
-    }
+    if (!res.headersSent) res.status(500).send("Proxy Error");
   }
 });
 
-// --- HOST THE WEBSITE (New Part) ---
-// 1. Serve the static files from the React build folder
+// --- HOST THE WEBSITE ---
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
-// 2. Handle "Catch-All" routing (Sends all other requests to React)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
