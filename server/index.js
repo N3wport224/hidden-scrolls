@@ -8,56 +8,50 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.json()); // Essential for Playback Session POST data
+app.use(express.json());
 
-// --- AUDITED PROXY ROUTE ---
 app.all('/api/proxy', async (req, res) => {
   const originalPath = req.query.path;
   if (!originalPath) return res.status(400).send("Missing path");
 
   const token = (process.env.ABS_API_TOKEN || '').trim();
   const baseUrl = process.env.ABS_BASE_URL.replace(/\/$/, '');
-  const cleanPath = originalPath.startsWith('/') ? originalPath : '/' + originalPath;
-  const targetUrl = `${baseUrl}${cleanPath}`;
+  const targetUrl = `${baseUrl}${originalPath.startsWith('/') ? originalPath : '/' + originalPath}`;
   
   try {
-    console.log(`📡 Proxying ${req.method}: ${originalPath}`);
-
     const response = await axios({
       method: req.method,
       url: targetUrl,
       headers: {
         'Authorization': `Bearer ${token}`,
         'Range': req.headers.range || '',
-        'Content-Type': req.headers['content-type'] || 'application/json'
       },
-      data: req.body, // Forwards POST data for session initialization
+      data: req.body,
       responseType: 'stream',
-      maxRedirects: 5,
       validateStatus: () => true 
     });
 
-    console.log(`   ✅ Status from ABS: ${response.status}`);
+    // VERBOSE DIAGNOSTIC LOGGING
+    if (response.status >= 400) {
+        console.error(`❌ ABS ERROR [${response.status}] on path: ${originalPath}`);
+        if (response.status === 401) console.error("   ↳ Reason: API Token rejected. Check your .env file.");
+        if (response.status === 404) console.error("   ↳ Reason: Endpoint not found. Check Audiobookshelf version compatibility.");
+    } else {
+        console.log(`✅ ABS SUCCESS [${response.status}]: ${originalPath}`);
+    }
 
-    // Forward crucial headers for streaming
     const forwardHeaders = ['content-type', 'content-range', 'accept-ranges', 'content-length'];
-    forwardHeaders.forEach(header => {
-      if (response.headers[header]) res.setHeader(header, response.headers[header]);
-    });
+    forwardHeaders.forEach(h => { if (response.headers[h]) res.setHeader(h, response.headers[h]); });
 
     res.status(response.status);
     response.data.pipe(res);
   } catch (error) {
-    console.error("💀 Proxy Error:", error.message);
-    if (!res.headersSent) res.status(500).send("Proxy Error");
+    console.error("💀 CRITICAL PROXY ERROR:", error.message);
+    if (!res.headersSent) res.status(500).json({ error: error.message, detail: "Proxy crash" });
   }
 });
 
 app.use(express.static(path.join(__dirname, '../client/dist')));
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/dist/index.html'));
-});
+app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
 
-app.listen(PORT, () => {
-  console.log(`🚀 Hidden Scrolls running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`🚀 Diagnostic Server running on port ${PORT}`));
