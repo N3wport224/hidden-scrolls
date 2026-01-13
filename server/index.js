@@ -15,34 +15,43 @@ app.use('/api/proxy', async (req, res) => {
     const originalPath = req.query.path;
     const targetUrl = `${process.env.ABS_BASE_URL}${originalPath}`;
     
-    // Log exactly what is happening
+    // Log the Request
     console.log(`📡 Request: ${originalPath}`);
-    if (req.headers.range) {
-      console.log(`   ↳ Streaming Range: ${req.headers.range}`);
-    }
+    if (req.headers.range) console.log(`   ↳ Range: ${req.headers.range}`);
 
     const response = await axios({
       method: req.method,
       url: targetUrl,
       headers: {
         'Authorization': `Bearer ${process.env.ABS_API_TOKEN}`,
-        'Range': req.headers.range || '', // Forward the range request!
+        'Range': req.headers.range || '', 
         'Accept': '*/*'
       },
       responseType: 'stream', 
-      decompress: false, // REQUIRED for streaming to work
-      validateStatus: () => true,
+      decompress: false, // We want the raw stream (compressed or not)
+      validateStatus: () => true, // Don't crash on 404s
     });
 
-    // Forward the critical headers back to the phone
-    res.set({
-        'Content-Type': response.headers['content-type'],
-        'Content-Length': response.headers['content-length'],
-        'Accept-Ranges': response.headers['accept-ranges'],
-        'Content-Range': response.headers['content-range'],
+    // Log the Result from the Main Server
+    console.log(`   ✅ Upstream Status: ${response.status}`);
+
+    // Forward CRITICAL headers (including Compression)
+    const headersToForward = [
+      'content-type',
+      'content-length',
+      'accept-ranges',
+      'content-range',
+      'content-encoding', // <--- THIS WAS MISSING
+      'transfer-encoding'
+    ];
+
+    headersToForward.forEach(header => {
+      if (response.headers[header]) {
+        res.setHeader(header, response.headers[header]);
+      }
     });
 
-    res.status(response.status); // Should be 206 for streaming
+    res.status(response.status);
     response.data.pipe(res);
 
   } catch (error) {
