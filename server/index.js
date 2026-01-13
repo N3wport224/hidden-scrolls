@@ -10,14 +10,15 @@ const PORT = process.env.PORT || 3000;
 app.use('/api/proxy', createProxyMiddleware({
   target: process.env.ABS_BASE_URL,
   changeOrigin: true,
-  pathRewrite: (path, req) => req.query.path, // Takes the path from our URL param
+  pathRewrite: (path, req) => req.query.path,
   onProxyReq: (proxyReq, req) => {
-    // Inject the API Token directly into every outgoing request
-    proxyReq.setHeader('Authorization', `Bearer ${process.env.ABS_API_TOKEN}`);
+    // Force lowercase 'authorization' and trim the token to remove hidden spaces
+    const token = process.env.ABS_API_TOKEN ? process.env.ABS_API_TOKEN.trim() : '';
+    proxyReq.setHeader('authorization', `Bearer ${token}`);
   },
   onProxyRes: (proxyRes) => {
-    // Ensure the browser knows we support streaming
-    proxyRes.headers['Accept-Ranges'] = 'bytes';
+    proxyRes.headers['accept-ranges'] = 'bytes';
+    
   },
   onError: (err, req, res) => {
     console.error('Proxy Error:', err);
