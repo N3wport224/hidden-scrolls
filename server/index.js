@@ -24,16 +24,19 @@ app.all('/api/proxy', async (req, res) => {
       url: targetUrl,
       headers: {
         'Authorization': `Bearer ${token}`,
-        'Range': req.headers.range || '',
-        'Content-Type': 'application/json'
+        'Range': req.headers.range || 'bytes=0-', // Force range to start stream
       },
-      data: req.body, 
+      data: req.body,
       responseType: 'stream',
-      maxRedirects: 5,
       validateStatus: () => true 
     });
 
-    // Forward crucial headers for 206 Partial Content streaming
+    if (response.status >= 400) {
+      console.error(`❌ ABS ERROR [${response.status}] on path: ${originalPath}`);
+    } else {
+      console.log(`✅ ABS SUCCESS [${response.status}]: ${originalPath}`);
+    }
+
     const forwardHeaders = ['content-type', 'content-range', 'accept-ranges', 'content-length'];
     forwardHeaders.forEach(h => { if (response.headers[h]) res.setHeader(h, response.headers[h]); });
 
@@ -48,4 +51,4 @@ app.all('/api/proxy', async (req, res) => {
 app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
 
-app.listen(PORT, () => console.log(`🚀 Handshake Proxy running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Hidden Scrolls running on port ${PORT}`));
