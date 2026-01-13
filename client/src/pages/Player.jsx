@@ -51,7 +51,7 @@ export default function Player() {
   const metadata = book.media?.metadata || {};
   const chapters = book.media?.chapters || [];
   const coverUrl = getProxyUrl(`/api/items/${id}/cover`);
-  const audioUrl = getProxyUrl(`/api/items/${id}/file`);
+  const audioUrl = getProxyUrl(`/api/items/${id}/stream`);
 
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center p-6">

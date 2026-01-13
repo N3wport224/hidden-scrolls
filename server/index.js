@@ -19,12 +19,13 @@ app.all('/api/proxy', async (req, res) => {
   const targetUrl = `${baseUrl}${originalPath.startsWith('/') ? originalPath : '/' + originalPath}`;
   
   try {
+    // Ensure this block is in your server/index.js proxy:
     const response = await axios({
       method: req.method,
       url: targetUrl,
       headers: {
         'Authorization': `Bearer ${token}`,
-        'Range': req.headers.range || 'bytes=0-', // Vital for starting the stream
+        'Range': req.headers.range || 'bytes=0-', // Force range to start the stream
       },
       data: req.body,
       responseType: 'stream',
