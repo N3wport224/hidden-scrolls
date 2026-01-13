@@ -14,49 +14,53 @@ app.use('/api/proxy', async (req, res) => {
     const originalPath = req.query.path;
     if (!originalPath) return res.status(400).send("Missing path");
 
-    // 1. CONSTRUCT URL WITH STICKY TOKEN
-    // We append the token directly to the URL so it survives redirects
     const baseUrl = process.env.ABS_BASE_URL.replace(/\/$/, '');
     const cleanPath = originalPath.startsWith('/') ? originalPath : `/${originalPath}`;
-    
-    // Check if path already has query params
-    const separator = cleanPath.includes('?') ? '&' : '?';
-    const targetUrl = `${baseUrl}${cleanPath}${separator}token=${process.env.ABS_API_TOKEN}`;
+    let targetUrl = `${baseUrl}${cleanPath}`;
 
-    console.log(`📡 Proxying: ${originalPath}`);
-    if (req.headers.range) console.log(`   ↳ Range: ${req.headers.range}`);
+    console.log(`📡 Request: ${originalPath}`);
 
-    // 2. MAKE THE REQUEST (No Auth Header needed now)
-    const response = await axios({
-      method: req.method,
-      url: targetUrl,
-      headers: {
-        'Range': req.headers.range || '', // Forward the streaming request
-        'Accept': '*/*',
-        'Accept-Encoding': 'identity' // Disable compression
-      },
-      responseType: 'stream',
-      validateStatus: () => true,
-      maxRedirects: 5 // Follow redirects automatically
+    // Create a reusable header function to ensure consistency
+    const getHeaders = () => ({
+      'Authorization': `Bearer ${process.env.ABS_API_TOKEN}`,
+      'Range': req.headers.range || '', 
+      'Accept': '*/*',
+      'Accept-Encoding': 'identity'
     });
 
-    console.log(`   ✅ Upstream Status: ${response.status}`);
+    // Handle the request manually to ensure Token isn't dropped
+    let response = await axios({
+      method: req.method,
+      url: targetUrl,
+      headers: getHeaders(),
+      responseType: 'stream',
+      maxRedirects: 0, // We handle redirects manually
+      validateStatus: (status) => status < 400
+    });
 
-    // 3. FORWARD RESPONSE
+    // If redirected, follow it once with the Token re-attached
+    if (response.status >= 300 && response.status < 400 && response.headers.location) {
+      const newUrl = response.headers.location.startsWith('http') 
+        ? response.headers.location 
+        : `${baseUrl}${response.headers.location}`;
+      
+      console.log(`   ↪ Redirected to real file location`);
+
+      response = await axios({
+        method: req.method,
+        url: newUrl,
+        headers: getHeaders(), // Re-attach the ID badge!
+        responseType: 'stream',
+        validateStatus: () => true
+      });
+    }
+
+    console.log(`   ✅ Final Status: ${response.status}`);
+
+    // Set headers and pipe data
     res.status(response.status);
-    
-    const headersToForward = [
-      'content-type',
-      'content-length',
-      'accept-ranges',
-      'content-range',
-      'content-encoding'
-    ];
-
-    headersToForward.forEach(header => {
-      if (response.headers[header]) {
-        res.setHeader(header, response.headers[header]);
-      }
+    ['content-type', 'content-length', 'accept-ranges', 'content-range'].forEach(h => {
+      if (response.headers[h]) res.setHeader(h, response.headers[h]);
     });
 
     response.data.pipe(res);
