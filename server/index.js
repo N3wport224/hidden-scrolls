@@ -1,66 +1,79 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const axios = require('axios');
+const http = require('http'); // We use the native module now
 const path = require('path');
+const { URL } = require('url');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 
-// Helper to remove double slashes from URLs
-const cleanUrl = (base, path) => {
-  const baseUrl = base.replace(/\/$/, ''); // Remove trailing slash
-  const cleanPath = path.startsWith('/') ? path : `/${path}`;
-  return `${baseUrl}${cleanPath}`;
+// Helper to clean up the URL
+const getTargetUrl = (base, relPath) => {
+  const cleanBase = base.replace(/\/$/, '');
+  const cleanPath = relPath.startsWith('/') ? relPath : `/${relPath}`;
+  return new URL(`${cleanBase}${cleanPath}`);
 };
 
-app.use('/api/proxy', async (req, res) => {
+app.use('/api/proxy', (req, res) => {
+  const originalPath = req.query.path;
+  if (!originalPath) return res.status(400).send("Missing path");
+
   try {
-    const originalPath = req.query.path;
-    if (!originalPath) return res.status(400).send("Missing path");
+    const targetUrl = getTargetUrl(process.env.ABS_BASE_URL, originalPath);
 
-    const targetUrl = cleanUrl(process.env.ABS_BASE_URL, originalPath);
-    
-    // Log the attempt
     console.log(`📡 Proxying: ${originalPath}`);
-    if (req.headers.range) console.log(`   ↳ Range Request: ${req.headers.range}`);
+    if (req.headers.range) console.log(`   ↳ Range: ${req.headers.range}`);
 
-    // 1. COPY ALL HEADERS from the Phone
-    const headers = { ...req.headers };
-    
-    // 2. OVERRIDE specific Auth/Host headers
-    delete headers.host; // Don't send 'localhost:3000' to the real server
-    headers['Authorization'] = `Bearer ${process.env.ABS_API_TOKEN}`;
-    headers['Accept-Encoding'] = 'identity'; // Disable compression to allow streaming
-
-    const response = await axios({
+    // Prepare options for the raw request
+    const options = {
+      hostname: targetUrl.hostname,
+      port: targetUrl.port || 80,
+      path: targetUrl.pathname + targetUrl.search,
       method: req.method,
-      url: targetUrl,
-      headers: headers, // Send the exact headers the phone sent
-      responseType: 'stream', 
-      decompress: false,
-      validateStatus: () => true,
+      headers: {
+        ...req.headers,
+        // Override crucial headers
+        'host': targetUrl.host,
+        'authorization': `Bearer ${process.env.ABS_API_TOKEN}`,
+        'accept-encoding': 'identity', // Disable compression (CRITICAL for streaming)
+        'connection': 'keep-alive'
+      }
+    };
+
+    // The Raw Request
+    const proxyReq = http.request(options, (proxyRes) => {
+      console.log(`   ✅ Upstream Status: ${proxyRes.statusCode}`);
+
+      // Forward status and headers to phone
+      res.status(proxyRes.statusCode);
+      
+      Object.keys(proxyRes.headers).forEach(key => {
+        res.setHeader(key, proxyRes.headers[key]);
+      });
+
+      // Pipe the data (stream it)
+      proxyRes.pipe(res);
     });
 
-    console.log(`   ✅ Upstream Status: ${response.status}`);
-
-    // 3. COPY ALL HEADERS back to the Phone
-    res.status(response.status);
-    
-    Object.keys(response.headers).forEach(key => {
-      res.setHeader(key, response.headers[key]);
+    // Handle Errors
+    proxyReq.on('error', (e) => {
+      console.error(`💀 PROXY ERROR: ${e.message}`);
+      if (!res.headersSent) res.status(500).send("Proxy Error");
     });
 
-    response.data.pipe(res);
+    // End the request
+    proxyReq.end();
 
   } catch (error) {
-    console.error("💀 PROXY ERROR:", error.message);
-    if (!res.headersSent) res.status(500).send("Proxy Error");
+    console.error("Critical Error:", error);
+    res.status(500).send("Server Error");
   }
 });
 
+// Host the website
 app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
