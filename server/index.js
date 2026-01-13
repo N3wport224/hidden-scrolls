@@ -33,12 +33,13 @@ app.all('/api/proxy', async (req, res) => {
       },
       data: req.body, 
       responseType: 'stream',
+      maxRedirects: 5, // Automatically follow internal file redirects
       validateStatus: () => true 
     });
 
     console.log(`   ✅ Status from ABS: ${response.status}`);
 
-    // Forward crucial headers for audio streaming
+    // Forward crucial headers for audio playback
     const forwardHeaders = [
       'content-type', 
       'content-range', 
@@ -60,7 +61,7 @@ app.all('/api/proxy', async (req, res) => {
   }
 });
 
-// Serve frontend
+// Serve frontend build
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
 app.get('*', (req, res) => {
