@@ -8,9 +8,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json()); // Essential for Playback Session POST data
 
-// --- UNIVERSAL PROXY ROUTE ---
+// --- AUDITED PROXY ROUTE ---
 app.all('/api/proxy', async (req, res) => {
   const originalPath = req.query.path;
   if (!originalPath) return res.status(400).send("Missing path");
@@ -29,11 +29,11 @@ app.all('/api/proxy', async (req, res) => {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Range': req.headers.range || '',
-        'Accept': '*/*'
+        'Content-Type': req.headers['content-type'] || 'application/json'
       },
-      data: req.body, 
+      data: req.body, // Forwards POST data for session initialization
       responseType: 'stream',
-      maxRedirects: 5, // Vital for the /play endpoint
+      maxRedirects: 5,
       validateStatus: () => true 
     });
 
