@@ -10,15 +10,18 @@ const PORT = process.env.PORT || 3000;
 app.use('/api/proxy', createProxyMiddleware({
   target: process.env.ABS_BASE_URL,
   changeOrigin: true,
+  secure: false, // Useful if using internal IPs
+  autoRewrite: true,
+  followRedirects: true,
   pathRewrite: (path, req) => req.query.path,
   onProxyReq: (proxyReq, req) => {
-    // Force lowercase 'authorization' and trim the token to remove hidden spaces
     const token = process.env.ABS_API_TOKEN ? process.env.ABS_API_TOKEN.trim() : '';
-    proxyReq.setHeader('authorization', `Bearer ${token}`);
+    proxyReq.setHeader('Authorization', `Bearer ${token}`);
+    // Clear any existing cookies that might be confusing the server
+    proxyReq.removeHeader('Cookie');
   },
   onProxyRes: (proxyRes) => {
-    proxyRes.headers['accept-ranges'] = 'bytes';
-    
+    proxyRes.headers['Accept-Ranges'] = 'bytes';
   },
   onError: (err, req, res) => {
     console.error('Proxy Error:', err);
