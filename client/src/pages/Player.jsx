@@ -51,7 +51,7 @@ export default function Player() {
   
   // DIRECT FILE STREAM
   // We add "supportedMimeTypes" to force the server to send raw audio instead of an HLS playlist
-  const audioUrl = getProxyUrl(`/api/items/${id}/file`);
+  const audioUrl = getProxyUrl(`/api/items/${id}/play`);
 
   const skip = (seconds) => {
     if (audioRef.current) audioRef.current.currentTime += seconds;
