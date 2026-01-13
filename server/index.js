@@ -14,8 +14,11 @@ app.all('/api/proxy', async (req, res) => {
   const originalPath = req.query.path;
   if (!originalPath) return res.status(400).send("Missing path");
 
+  // AUDIT: Always prefer the token from the .env file for security
   const token = (process.env.ABS_API_TOKEN || '').trim();
   const baseUrl = process.env.ABS_BASE_URL.replace(/\/$/, '');
+  
+  // Combine the path and any existing query strings (like ?token=...)
   const targetUrl = `${baseUrl}${originalPath.startsWith('/') ? originalPath : '/' + originalPath}`;
   
   try {
@@ -23,19 +26,17 @@ app.all('/api/proxy', async (req, res) => {
       method: req.method,
       url: targetUrl,
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${token}`, // Fallback if token not in URL
         'Range': req.headers.range || '',
       },
-      data: req.body,
       responseType: 'stream',
+      maxRedirects: 5,
       validateStatus: () => true 
     });
 
-    // VERBOSE DIAGNOSTIC LOGGING
+    // DIAGNOSTIC LOGGING
     if (response.status >= 400) {
-        console.error(`❌ ABS ERROR [${response.status}] on path: ${originalPath}`);
-        if (response.status === 401) console.error("   ↳ Reason: API Token rejected. Check your .env file.");
-        if (response.status === 404) console.error("   ↳ Reason: Endpoint not found. Check Audiobookshelf version compatibility.");
+        console.error(`❌ ABS ERROR [${response.status}]: ${originalPath}`);
     } else {
         console.log(`✅ ABS SUCCESS [${response.status}]: ${originalPath}`);
     }
@@ -46,12 +47,12 @@ app.all('/api/proxy', async (req, res) => {
     res.status(response.status);
     response.data.pipe(res);
   } catch (error) {
-    console.error("💀 CRITICAL PROXY ERROR:", error.message);
-    if (!res.headersSent) res.status(500).json({ error: error.message, detail: "Proxy crash" });
+    console.error("💀 PROXY CRASH:", error.message);
+    if (!res.headersSent) res.status(500).send("Proxy Error");
   }
 });
 
 app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
 
-app.listen(PORT, () => console.log(`🚀 Diagnostic Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Audited Server running on port ${PORT}`));
