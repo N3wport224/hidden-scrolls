@@ -2,28 +2,24 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
-const compression = require('compression'); // New Tool 1: Shrinks data
-const apicache = require('apicache');       // New Tool 2: Remembers data
+const compression = require('compression');
+const apicache = require('apicache');
+const path = require('path'); // Required for hosting the site
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const cache = apicache.middleware;
 
 app.use(cors());
-app.use(compression()); // Enable Gzip compression globally
+app.use(compression());
 
 if (!process.env.ABS_BASE_URL || !process.env.ABS_API_TOKEN) {
   console.error("❌ ERROR: Missing .env variables.");
 }
 
 // --- SMART CACHE FILTER ---
-// We only want to cache "Text" data (Library lists, Book info).
-// We MUST NOT cache Audio streams or Images (too big/complex).
 const cacheLogic = cache('5 minutes', (req, res) => {
     const path = req.query.path || '';
-    
-    // Only cache if the request was successful (200 OK)
-    // AND it is NOT a file (audio) or cover (image)
     return res.statusCode === 200 && 
            req.method === 'GET' && 
            !path.includes('/file') && 
@@ -31,15 +27,14 @@ const cacheLogic = cache('5 minutes', (req, res) => {
            !path.includes('/play');
 });
 
-// Apply the cache logic to our proxy route
+// --- API PROXY ROUTE ---
 app.use('/api/proxy', cacheLogic, async (req, res) => {
   try {
     const originalPath = req.query.path || '/api/items'; 
     const targetUrl = `${process.env.ABS_BASE_URL}${originalPath}`;
     const rangeHeader = req.headers.range;
 
-    // Log only if it's NOT a cached hit (Cached hits are silent and instant)
-    console.log(`📡 Fetching from Pi: ${originalPath}`);
+    console.log(`📡 Fetching: ${originalPath}`);
 
     const headers = {
       'Authorization': `Bearer ${process.env.ABS_API_TOKEN}`,
@@ -76,6 +71,15 @@ app.use('/api/proxy', cacheLogic, async (req, res) => {
   }
 });
 
+// --- HOST THE WEBSITE (New Part) ---
+// 1. Serve the static files from the React build folder
+app.use(express.static(path.join(__dirname, '../client/dist')));
+
+// 2. Handle "Catch-All" routing (Sends all other requests to React)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+});
+
 app.listen(PORT, () => {
-  console.log(`🚀 High-Performance Proxy running on http://localhost:${PORT}`);
+  console.log(`🚀 Hidden Scrolls running on port ${PORT}`);
 });
