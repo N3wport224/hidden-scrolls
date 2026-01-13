@@ -11,18 +11,15 @@ app.use('/api/proxy', createProxyMiddleware({
   target: process.env.ABS_BASE_URL,
   changeOrigin: true,
   pathRewrite: (path, req) => req.query.path,
-  // This injects the token exactly like your successful curl command
+  // We use the 'headers' option to set the token globally for every proxy request
   headers: {
     'Authorization': `Bearer ${process.env.ABS_API_TOKEN.trim()}`
   },
   onProxyReq: (proxyReq, req) => {
-    // Remove headers that often cause 401s during proxying
+    // These headers often cause authentication conflicts when proxying
     proxyReq.removeHeader('cookie');
     proxyReq.removeHeader('referer');
     proxyReq.removeHeader('origin');
-  },
-  onProxyRes: (proxyRes) => {
-    proxyRes.headers['accept-ranges'] = 'bytes';
   }
 }));
 
