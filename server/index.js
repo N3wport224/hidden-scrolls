@@ -11,18 +11,17 @@ app.use('/api/proxy', createProxyMiddleware({
   target: process.env.ABS_BASE_URL,
   changeOrigin: true,
   pathRewrite: (path, req) => req.query.path,
+  // This injects the token exactly like your successful curl command
+  headers: {
+    'Authorization': `Bearer ${process.env.ABS_API_TOKEN.trim()}`
+  },
   onProxyReq: (proxyReq, req) => {
-    // 1. Force the Authorization header exactly like the curl command
-    const token = process.env.ABS_API_TOKEN ? process.env.ABS_API_TOKEN.trim() : '';
-    proxyReq.setHeader('Authorization', `Bearer ${token}`);
-    
-    // 2. Remove any local headers that might tip off the server
+    // Remove headers that often cause 401s during proxying
     proxyReq.removeHeader('cookie');
     proxyReq.removeHeader('referer');
     proxyReq.removeHeader('origin');
   },
   onProxyRes: (proxyRes) => {
-    // Keep streaming enabled
     proxyRes.headers['accept-ranges'] = 'bytes';
   }
 }));
