@@ -10,22 +10,20 @@ const PORT = process.env.PORT || 3000;
 app.use('/api/proxy', createProxyMiddleware({
   target: process.env.ABS_BASE_URL,
   changeOrigin: true,
-  secure: false, // Useful if using internal IPs
-  autoRewrite: true,
-  followRedirects: true,
   pathRewrite: (path, req) => req.query.path,
   onProxyReq: (proxyReq, req) => {
+    // 1. Force the Authorization header exactly like the curl command
     const token = process.env.ABS_API_TOKEN ? process.env.ABS_API_TOKEN.trim() : '';
     proxyReq.setHeader('Authorization', `Bearer ${token}`);
-    // Clear any existing cookies that might be confusing the server
-    proxyReq.removeHeader('Cookie');
+    
+    // 2. Remove any local headers that might tip off the server
+    proxyReq.removeHeader('cookie');
+    proxyReq.removeHeader('referer');
+    proxyReq.removeHeader('origin');
   },
   onProxyRes: (proxyRes) => {
-    proxyRes.headers['Accept-Ranges'] = 'bytes';
-  },
-  onError: (err, req, res) => {
-    console.error('Proxy Error:', err);
-    res.status(500).send('Proxy encountered an error.');
+    // Keep streaming enabled
+    proxyRes.headers['accept-ranges'] = 'bytes';
   }
 }));
 
