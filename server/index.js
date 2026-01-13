@@ -34,7 +34,8 @@ app.use('/api/proxy', async (req, res) => {
     });
 
     console.log(`   ✅ Upstream Status: ${response.status}`);
-
+    console.log("   ✅ Content-Type:", response.headers['content-type']);
+    
     const headersToForward = [
       'content-type',
       'content-length',
