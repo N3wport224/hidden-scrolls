@@ -50,7 +50,7 @@ export default function Player() {
   const coverUrl = getProxyUrl(`/api/items/${id}/cover`);
   
   // DIRECT FILE STREAM
-  const audioUrl = getProxyUrl(`/api/items/${id}/file`);
+  const audioUrl = getProxyUrl(`/api/items/${id}/play`);
 
   const skip = (seconds) => {
     if (audioRef.current) audioRef.current.currentTime += seconds;

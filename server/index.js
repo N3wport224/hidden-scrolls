@@ -15,7 +15,7 @@ app.all('/api/proxy', async (req, res) => {
   const originalPath = req.query.path;
   if (!originalPath) return res.status(400).send("Missing path");
 
-  // AUDIT: Force the token from the .env file to bypass client-side 'null' errors
+  // Force the token from the .env file to ensure authorization
   const token = (process.env.ABS_API_TOKEN || '').trim();
   const baseUrl = process.env.ABS_BASE_URL.replace(/\/$/, '');
   const cleanPath = originalPath.startsWith('/') ? originalPath : '/' + originalPath;
@@ -32,18 +32,18 @@ app.all('/api/proxy', async (req, res) => {
       },
       data: req.body, 
       responseType: 'stream',
-      maxRedirects: 5, // Vital for following Audiobookshelf file redirects
+      maxRedirects: 5, // MANDATORY for the /play endpoint to follow redirects
       validateStatus: () => true 
     });
 
-    // DIAGNOSTIC LOGGING: Shows exactly what Audiobookshelf thinks of the request
+    // DIAGNOSTIC LOGGING
     if (response.status >= 400) {
         console.error(`❌ ABS ERROR [${response.status}]: ${originalPath}`);
     } else {
         console.log(`✅ ABS SUCCESS [${response.status}]: ${originalPath}`);
     }
 
-    // Forward crucial headers for audio streaming and browser playback
+    // Forward headers required for audio playback
     const forwardHeaders = ['content-type', 'content-range', 'accept-ranges', 'content-length'];
     forwardHeaders.forEach(header => {
       if (response.headers[header]) {
@@ -62,7 +62,7 @@ app.all('/api/proxy', async (req, res) => {
 // Serve frontend build files
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
-// Handle SPA routing: return index.html for all non-api routes
+// Handle SPA routing
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
