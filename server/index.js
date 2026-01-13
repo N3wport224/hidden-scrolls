@@ -10,46 +10,35 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// --- AUDITED UNIVERSAL PROXY ROUTE ---
 app.all('/api/proxy', async (req, res) => {
   const originalPath = req.query.path;
   if (!originalPath) return res.status(400).send("Missing path");
 
-  // Force the token from the .env file to ensure authorization
   const token = (process.env.ABS_API_TOKEN || '').trim();
   const baseUrl = process.env.ABS_BASE_URL.replace(/\/$/, '');
-  const cleanPath = originalPath.startsWith('/') ? originalPath : '/' + originalPath;
-  const targetUrl = `${baseUrl}${cleanPath}`;
+  const targetUrl = `${baseUrl}${originalPath.startsWith('/') ? originalPath : '/' + originalPath}`;
   
   try {
     const response = await axios({
       method: req.method,
       url: targetUrl,
       headers: {
-        'Authorization': `Bearer ${token}`, // Verified format
-        'Range': req.headers.range || '',
-        'Accept': '*/*'
+        'Authorization': `Bearer ${token}`,
+        'Range': req.headers.range || 'bytes=0-', // Force a range to start the stream
       },
-      data: req.body, 
       responseType: 'stream',
-      maxRedirects: 5, // MANDATORY for the /play endpoint to follow redirects
+      maxRedirects: 5,
       validateStatus: () => true 
     });
 
-    // DIAGNOSTIC LOGGING
     if (response.status >= 400) {
         console.error(`❌ ABS ERROR [${response.status}]: ${originalPath}`);
     } else {
         console.log(`✅ ABS SUCCESS [${response.status}]: ${originalPath}`);
     }
 
-    // Forward headers required for audio playback
     const forwardHeaders = ['content-type', 'content-range', 'accept-ranges', 'content-length'];
-    forwardHeaders.forEach(header => {
-      if (response.headers[header]) {
-        res.setHeader(header, response.headers[header]);
-      }
-    });
+    forwardHeaders.forEach(h => { if (response.headers[h]) res.setHeader(h, response.headers[h]); });
 
     res.status(response.status);
     response.data.pipe(res);
@@ -59,14 +48,7 @@ app.all('/api/proxy', async (req, res) => {
   }
 });
 
-// Serve frontend build files
 app.use(express.static(path.join(__dirname, '../client/dist')));
+app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
 
-// Handle SPA routing
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/dist/index.html'));
-});
-
-app.listen(PORT, () => {
-  console.log(`🚀 Audited Hidden Scrolls running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`🚀 Final Audited Server on port ${PORT}`));

@@ -50,7 +50,8 @@ export default function Player() {
   const coverUrl = getProxyUrl(`/api/items/${id}/cover`);
   
   // DIRECT FILE STREAM
-  const audioUrl = getProxyUrl(`/api/items/${id}/play`);
+  // This uses the 'open' file access method which is most reliable for streaming
+  const audioUrl = getProxyUrl(`/api/items/${id}/file`);
 
   const skip = (seconds) => {
     if (audioRef.current) audioRef.current.currentTime += seconds;
