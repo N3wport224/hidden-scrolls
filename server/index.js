@@ -8,17 +8,14 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.json()); // Support for parsing JSON bodies in POST requests
+app.use(express.json());
 
 // --- UNIVERSAL PROXY ROUTE ---
-// Supports GET (for covers/metadata) and POST (for certain audio streams)
 app.all('/api/proxy', async (req, res) => {
   const originalPath = req.query.path;
   if (!originalPath) return res.status(400).send("Missing path");
 
   const token = (process.env.ABS_API_TOKEN || '').trim();
-  
-  // Clean the base URL and path to prevent double-slashes
   const baseUrl = process.env.ABS_BASE_URL.replace(/\/$/, '');
   const cleanPath = originalPath.startsWith('/') ? originalPath : '/' + originalPath;
   const targetUrl = `${baseUrl}${cleanPath}`;
@@ -30,7 +27,7 @@ app.all('/api/proxy', async (req, res) => {
       method: req.method,
       url: targetUrl,
       headers: {
-        'Authorization': `Bearer ${token}`, // Verified format from successful curl
+        'Authorization': `Bearer ${token}`,
         'Range': req.headers.range || '',
         'Accept': '*/*'
       },
@@ -41,8 +38,14 @@ app.all('/api/proxy', async (req, res) => {
 
     console.log(`   ✅ Status from ABS: ${response.status}`);
 
-    // Forward crucial headers for streaming and browser compatibility
-    const forwardHeaders = ['content-type', 'content-range', 'accept-ranges', 'content-length'];
+    // Forward crucial headers for audio streaming
+    const forwardHeaders = [
+      'content-type', 
+      'content-range', 
+      'accept-ranges', 
+      'content-length'
+    ];
+    
     forwardHeaders.forEach(header => {
       if (response.headers[header]) {
         res.setHeader(header, response.headers[header]);
@@ -57,10 +60,9 @@ app.all('/api/proxy', async (req, res) => {
   }
 });
 
-// Serve the frontend build files
+// Serve frontend
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
-// Handle SPA routing: return index.html for all non-api routes
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
