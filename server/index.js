@@ -9,60 +9,50 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 
+// Helper to remove double slashes from URLs
+const cleanUrl = (base, path) => {
+  const baseUrl = base.replace(/\/$/, ''); // Remove trailing slash
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `${baseUrl}${cleanPath}`;
+};
+
 app.use('/api/proxy', async (req, res) => {
   try {
     const originalPath = req.query.path;
-    const targetUrl = `${process.env.ABS_BASE_URL}${originalPath}`;
+    if (!originalPath) return res.status(400).send("Missing path");
+
+    const targetUrl = cleanUrl(process.env.ABS_BASE_URL, originalPath);
     
-    // Log the incoming request
-    console.log(`📡 Request: ${originalPath}`);
-    if (req.headers.range) {
-      console.log(`   ↳ Client asked for Range: ${req.headers.range}`);
-    }
+    // Log the attempt
+    console.log(`📡 Proxying: ${originalPath}`);
+    if (req.headers.range) console.log(`   ↳ Range Request: ${req.headers.range}`);
 
-    // 1. Prepare Headers (Force Capitalization for Strict Servers)
-    const upstreamHeaders = {
-      'Authorization': `Bearer ${process.env.ABS_API_TOKEN}`,
-      'Accept': '*/*',
-      'Accept-Encoding': 'identity', // Disable compression
-      'Connection': 'keep-alive'
-    };
-
-    // 2. Explicitly add Range if the phone asked for it
-    if (req.headers.range) {
-      upstreamHeaders['Range'] = req.headers.range; 
-    }
+    // 1. COPY ALL HEADERS from the Phone
+    const headers = { ...req.headers };
+    
+    // 2. OVERRIDE specific Auth/Host headers
+    delete headers.host; // Don't send 'localhost:3000' to the real server
+    headers['Authorization'] = `Bearer ${process.env.ABS_API_TOKEN}`;
+    headers['Accept-Encoding'] = 'identity'; // Disable compression to allow streaming
 
     const response = await axios({
       method: req.method,
       url: targetUrl,
-      headers: upstreamHeaders,
+      headers: headers, // Send the exact headers the phone sent
       responseType: 'stream', 
       decompress: false,
       validateStatus: () => true,
     });
 
     console.log(`   ✅ Upstream Status: ${response.status}`);
-    console.log(`   ✅ Content-Type: ${response.headers['content-type']}`);
 
-    // 3. Forward the specific streaming headers
-    const headersToForward = [
-      'content-type',
-      'content-length',
-      'accept-ranges',
-      'content-range',
-      'content-encoding',
-      'transfer-encoding'
-    ];
-
-    headersToForward.forEach(header => {
-      if (response.headers[header]) {
-        res.setHeader(header, response.headers[header]);
-      }
+    // 3. COPY ALL HEADERS back to the Phone
+    res.status(response.status);
+    
+    Object.keys(response.headers).forEach(key => {
+      res.setHeader(key, response.headers[key]);
     });
 
-    // 4. Send the data
-    res.status(response.status);
     response.data.pipe(res);
 
   } catch (error) {
