@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const axios = require('axios'); // <--- THIS WAS MISSING
+const axios = require('axios');
 const path = require('path');
 
 const app = express();
@@ -14,7 +14,6 @@ app.get('/api/proxy', async (req, res) => {
   const originalPath = req.query.path;
   if (!originalPath) return res.status(400).send("Missing path");
 
-  // Ensure the token is clean and valid
   const token = (process.env.ABS_API_TOKEN || '').trim();
   const targetUrl = `${process.env.ABS_BASE_URL}${originalPath.startsWith('/') ? originalPath : '/' + originalPath}`;
   
@@ -25,7 +24,7 @@ app.get('/api/proxy', async (req, res) => {
       method: 'GET',
       url: targetUrl,
       headers: {
-        'Authorization': `Bearer ${token}`, // Verified format
+        'Authorization': `Bearer ${token}`,
         'Range': req.headers.range || '',
         'Accept': '*/*'
       },
@@ -36,23 +35,10 @@ app.get('/api/proxy', async (req, res) => {
     console.log(`   ✅ Status from ABS: ${response.status}`);
 
     // Forward crucial headers for streaming
-    if (response.headers['content-type']) res.setHeader('content-type', response.headers['content-type']);
-    if (response.headers['content-range']) res.setHeader('content-range', response.headers['content-range']);
-    if (response.headers['accept-ranges']) res.setHeader('accept-ranges', response.headers['accept-ranges']);
-
-    res.status(response.status);
-    response.data.pipe(res);
-  } catch (error) {
-    console.error("💀 Proxy Error:", error.message);
-    if (!res.headersSent) res.status(500).send("Proxy Error");
-  }
-});
-    console.log(`   ✅ Status from ABS: ${response.status}`);
-
-    // Forward crucial headers
-    if (response.headers['content-type']) res.setHeader('content-type', response.headers['content-type']);
-    if (response.headers['content-range']) res.setHeader('content-range', response.headers['content-range']);
-    if (response.headers['accept-ranges']) res.setHeader('accept-ranges', response.headers['accept-ranges']);
+    const forwardHeaders = ['content-type', 'content-range', 'accept-ranges'];
+    forwardHeaders.forEach(header => {
+      if (response.headers[header]) res.setHeader(header, response.headers[header]);
+    });
 
     res.status(response.status);
     response.data.pipe(res);
