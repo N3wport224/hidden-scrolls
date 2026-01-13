@@ -1,9 +1,10 @@
-import { API_BASE_URL } from '../config'; // Import the new relative path
+import { API_BASE_URL } from '../config';
 
 export async function fetchBooks() {
   try {
-    // Use the variable from config.js instead of a hardcoded string
-    const response = await fetch(`${API_BASE_URL}?path=/api/items?mediaType=audiobook`);
+    // We added your specific Library ID here:
+    const response = await fetch(`${API_BASE_URL}?path=/api/libraries/575767a4-d45d-466c-8295-8766aa060b44/items?mediaType=audiobook`);
+    
     if (!response.ok) throw new Error('Failed to fetch books');
     return await response.json();
   } catch (error) {
@@ -14,6 +15,7 @@ export async function fetchBooks() {
 
 export async function fetchBookDetails(id) {
   try {
+    // For single books, the ID is usually enough, but we keep the structure consistent
     const response = await fetch(`${API_BASE_URL}?path=/api/items/${id}`);
     if (!response.ok) throw new Error('Failed to fetch book details');
     return await response.json();
