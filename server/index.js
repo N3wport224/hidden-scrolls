@@ -24,17 +24,19 @@ app.all('/api/proxy', async (req, res) => {
       url: targetUrl,
       headers: {
         'Authorization': `Bearer ${token}`,
-        'Range': req.headers.range || 'bytes=0-', // Force range to start stream
+        'Range': req.headers.range || 'bytes=0-', // Vital for starting the stream
       },
       data: req.body,
       responseType: 'stream',
+      maxRedirects: 5,
       validateStatus: () => true 
     });
 
+    // Logging specifically for diagnostic movement
     if (response.status >= 400) {
-      console.error(`❌ ABS ERROR [${response.status}] on path: ${originalPath}`);
+        console.error(`❌ ABS ERROR [${response.status}] on: ${originalPath}`);
     } else {
-      console.log(`✅ ABS SUCCESS [${response.status}]: ${originalPath}`);
+        console.log(`✅ ABS SUCCESS [${response.status}]: ${originalPath}`);
     }
 
     const forwardHeaders = ['content-type', 'content-range', 'accept-ranges', 'content-length'];
@@ -43,7 +45,7 @@ app.all('/api/proxy', async (req, res) => {
     res.status(response.status);
     response.data.pipe(res);
   } catch (error) {
-    console.error("💀 Proxy Error:", error.message);
+    console.error("💀 Proxy Crash:", error.message);
     if (!res.headersSent) res.status(500).send("Proxy Error");
   }
 });
@@ -51,4 +53,4 @@ app.all('/api/proxy', async (req, res) => {
 app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
 
-app.listen(PORT, () => console.log(`🚀 Hidden Scrolls running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Handshake Proxy running on port ${PORT}`));
