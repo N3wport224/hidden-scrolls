@@ -12,7 +12,7 @@ export default function Player() {
   const [sessionId, setSessionId] = useState(null); 
   const audioRef = useRef(null);
   const silentRef = useRef(null); 
-  const hasSought = useRef(false); // Persistent check to ensure we only seek once per load
+  const seekApplied = useRef(false); // Persistent flag to prevent loop-fighting
   
   useEffect(() => {
     fetchBookDetails(id).then(setBook);
@@ -23,55 +23,65 @@ export default function Player() {
           headers: { 'Content-Type': 'application/json' },
           credentials: 'omit', // Crucial to avoid session pollution
           body: JSON.stringify({ 
-            deviceId: 'car-player-pi-final-v4', 
+            deviceId: 'car-player-pi-final-v5', 
             supportedMimeTypes: ['audio/mpeg', 'audio/mp4'],
             forceDirectPlay: true 
           })
         });
         const data = await res.json();
         if (data.id) setSessionId(data.id); 
-      } catch (err) { console.error("❌ Session handshake failed:", err); }
+      } catch (err) { console.error("❌ Session failed:", err); }
     };
     initSession();
   }, [id]);
 
-  // Bluetooth Keep-Alive
+  // THE SENTINEL: This effect runs every time the audio element or session changes
   useEffect(() => {
-    if (silentRef.current) {
-      bluetoothMode ? silentRef.current.play().catch(() => {}) : silentRef.current.pause();
-    }
-  }, [bluetoothMode]);
+    const audio = audioRef.current;
+    if (!audio || !sessionId) return;
 
-  // FINAL RESUME LOGIC: Forces the jump when the phone is ready
-  const attemptSeek = () => {
-    if (hasSought.current || !audioRef.current) return;
-
-    const savedTime = localStorage.getItem(`progress_${id}`);
-    if (savedTime) {
-      const targetTime = parseFloat(savedTime);
-      // Only seek if the audio engine has enough data to know its duration
-      if (audioRef.current.duration > 0) {
-        console.log(`🎯 Locking resume at: ${targetTime}s`);
-        audioRef.current.currentTime = targetTime;
-        hasSought.current = true;
+    const handleSeek = () => {
+      if (seekApplied.current) return;
+      
+      const savedTime = localStorage.getItem(`progress_${id}`);
+      if (savedTime) {
+        const target = parseFloat(savedTime);
+        // Mobile browsers need the duration to be known (> 0) before they allow seeking
+        if (audio.duration > 0 && audio.readyState >= 1) { 
+          console.log(`🎯 Sentinel Forcing Seek: ${target}s`);
+          audio.currentTime = target;
+          seekApplied.current = true;
+        }
+      } else {
+        seekApplied.current = true;
       }
-    } else {
-      hasSought.current = true; // No saved time, consider "sought" finished
-    }
-  };
+    };
 
-  if (!book) return <div className="p-10 text-white text-center font-bold">Resuming Session...</div>;
+    // Listen to every event that might mean the browser is "ready"
+    audio.addEventListener('loadedmetadata', handleSeek);
+    audio.addEventListener('durationchange', handleSeek);
+    audio.addEventListener('canplay', handleSeek);
+    audio.addEventListener('play', handleSeek); // iOS often waits until play is pressed
+
+    return () => {
+      audio.removeEventListener('loadedmetadata', handleSeek);
+      audio.removeEventListener('durationchange', handleSeek);
+      audio.removeEventListener('canplay', handleSeek);
+      audio.removeEventListener('play', handleSeek);
+    };
+  }, [sessionId, id]);
+
+  if (!book) return <div className="p-10 text-white text-center">Resuming...</div>;
 
   const audioUrl = sessionId ? getProxyUrl(`/public/session/${sessionId}/track/1`) : null;
 
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center p-6">
-      
       <div className="w-full max-w-3xl flex justify-between items-center mb-8">
         <button onClick={() => navigate('/')} className="font-bold px-4 py-2 bg-slate-800 rounded-lg">← Library</button>
         <button 
           onClick={() => setBluetoothMode(!bluetoothMode)}
-          className={`px-6 py-2 rounded-full font-bold text-sm shadow-lg ${bluetoothMode ? 'bg-emerald-600' : 'bg-slate-700'}`}
+          className={`px-6 py-2 rounded-full font-bold text-sm ${bluetoothMode ? 'bg-emerald-600' : 'bg-slate-700'}`}
         >
           {bluetoothMode ? 'Bluetooth Active' : 'Enable Bluetooth'}
         </button>
@@ -81,7 +91,7 @@ export default function Player() {
 
       <div className="w-full max-w-3xl flex flex-col items-center">
         <div className="aspect-[2/3] w-52 bg-slate-800 rounded-2xl shadow-2xl mb-8 overflow-hidden border border-slate-700">
-          <img src={getProxyUrl(`/api/items/${id}/cover`)} className="w-full h-full object-cover" alt="Cover" />
+          <img src={getProxyUrl(`/api/items/${id}/cover`)} className="w-full h-full object-cover" />
         </div>
 
         <div className="w-full bg-slate-800 p-8 rounded-3xl shadow-xl mb-8 border border-slate-700">
@@ -90,11 +100,9 @@ export default function Player() {
               controls 
               key={sessionId || 'loading'} 
               className="w-full h-12 invert-[.9]"
-              // Trigger seek as early and as often as possible until it sticks
-              onLoadedMetadata={attemptSeek}
-              onCanPlay={attemptSeek}
               onTimeUpdate={() => {
-                if (audioRef.current && audioRef.current.currentTime > 0) {
+                // Only save if the audio is actually playing and beyond the start
+                if (audioRef.current && audioRef.current.currentTime > 1) {
                     localStorage.setItem(`progress_${id}`, audioRef.current.currentTime);
                 }
               }}
@@ -106,7 +114,7 @@ export default function Player() {
         </div>
 
         <div className="w-full">
-          <h3 className="text-lg font-bold mb-4 text-emerald-400">Chapters</h3>
+          <h3 className="text-lg font-bold mb-4 text-emerald-400 px-2">Chapters</h3>
           <div className="bg-slate-800 rounded-2xl divide-y divide-slate-700 max-h-80 overflow-y-auto border border-slate-700">
             {book.media?.chapters?.map((c, i) => (
               <button 
@@ -114,7 +122,7 @@ export default function Player() {
                 onClick={() => { if(audioRef.current) { audioRef.current.currentTime = c.start; audioRef.current.play(); } }} 
                 className="w-full p-5 hover:bg-slate-700 flex justify-between text-left transition"
               >
-                <span className="font-medium">{c.title || `Chapter ${i + 1}`}</span>
+                <span>{c.title || `Chapter ${i + 1}`}</span>
                 <span className="text-gray-500 font-mono text-sm">{new Date(c.start * 1000).toISOString().substr(11, 8)}</span>
               </button>
             ))}
