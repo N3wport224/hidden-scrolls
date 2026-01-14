@@ -16,6 +16,8 @@ app.all('/api/proxy', async (req, res) => {
 
   const token = (process.env.ABS_API_TOKEN || '').trim();
   const baseUrl = process.env.ABS_BASE_URL.replace(/\/$/, '');
+  
+  // Directly append the requested path to the base URL without guessing subfolders
   const targetUrl = `${baseUrl}/${originalPath.replace(/^\//, '')}`;
   
   try {
@@ -25,8 +27,8 @@ app.all('/api/proxy', async (req, res) => {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Range': req.headers.range || 'bytes=0-',
-        'Cookie': req.headers.cookie || '', // Forward the browser's session cookies
-        'User-Agent': req.headers['user-agent'] // CRITICAL: Mirror the browser identity
+        'Cookie': req.headers.cookie || '', 
+        'User-Agent': req.headers['user-agent'] // Mirror the browser
       },
       data: req.body,
       responseType: 'stream',
@@ -34,7 +36,7 @@ app.all('/api/proxy', async (req, res) => {
     });
 
     if (response.status >= 400) {
-      console.error(`❌ ABS ERROR [${response.status}] for: ${originalPath}`);
+      console.error(`❌ ABS ERROR [${response.status}] for: ${targetUrl}`);
     } else {
       console.log(`✅ ABS SUCCESS [${response.status}]: ${originalPath}`);
     }
@@ -53,4 +55,4 @@ app.all('/api/proxy', async (req, res) => {
 app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
 
-app.listen(PORT, () => console.log(`🚀 Final Proxy running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Path-Aware Proxy active on port ${PORT}`));

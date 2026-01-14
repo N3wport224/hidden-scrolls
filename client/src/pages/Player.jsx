@@ -17,10 +17,10 @@ export default function Player() {
         const res = await fetch(getProxyUrl(`/api/items/${id}/play`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          // CRITICAL: Force the browser to ignore conflicting admin cookies
+          // Ignore admin cookies to avoid path/session conflicts
           credentials: 'omit', 
           body: JSON.stringify({ 
-            deviceId: 'car-player-vfinal-unique', 
+            deviceId: 'car-player-path-fix-v1', 
             supportedMimeTypes: ['audio/mpeg'],
             forceDirectPlay: true 
           })
@@ -35,7 +35,7 @@ export default function Player() {
   if (!book) return <div className="p-10 text-center text-white">Loading...</div>;
 
   const metadata = book.media?.metadata || {};
-  const chapters = book.media?.chapters || []; // Chapters restored
+  const chapters = book.media?.chapters || [];
   const coverUrl = getProxyUrl(`/api/items/${id}/cover`);
   const audioUrl = sessionId ? getProxyUrl(`/api/items/${id}/stream/${sessionId}`) : null;
 
@@ -61,7 +61,7 @@ export default function Player() {
         <h3 className="text-xl font-bold mb-4 text-emerald-400">Chapters</h3>
         <div className="bg-slate-800 rounded-xl divide-y divide-slate-700 max-h-64 overflow-y-auto text-left">
           {chapters.map((c, i) => (
-            <button key={i} onClick={() => {if(audioRef.current){audioRef.current.currentTime = c.start; audioRef.current.play();}}} className="w-full p-4 hover:bg-slate-700 flex justify-between transition">
+            <button key={i} onClick={() => {if(audioRef.current){audioRef.current.currentTime = c.start; audioRef.current.play();}}} className="w-full p-4 hover:bg-slate-700 flex justify-between">
               <span className="text-gray-200">{c.title || `Chapter ${i + 1}`}</span>
               <span className="text-gray-500 text-sm">{new Date(c.start * 1000).toISOString().substr(11, 8)}</span>
             </button>
