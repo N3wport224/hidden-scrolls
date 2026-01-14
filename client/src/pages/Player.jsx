@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchBookDetails, getProxyUrl } from '../lib/api';
 
-// Silent MP3 to keep Bluetooth alive during pauses or quiet moments
+// Silent MP3 to keep Bluetooth connections alive in the car
 const SILENT_AUDIO_SRC = "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD//////////////////////////////////////////////////////////////////wAAAAAATGF2YzU4LjU0AAAAAAAAAAAAAAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD//////////////////////////////////////////////////////////////////wAAAAAATGF2YzU4LjU0AAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
 export default function Player() {
@@ -17,31 +17,31 @@ export default function Player() {
   useEffect(() => {
     fetchBookDetails(id).then(setBook);
     
-    // STEP 1: INITIALIZE PLAYBACK HANDSHAKE
+    // STEP 1: INITIALIZE ISOLATED PLAYBACK SESSION
     const initSession = async () => {
       try {
-        console.log("🛠 Initializing secure playback session...");
+        console.log("🛠 Initializing clean playback session...");
         const res = await fetch(getProxyUrl(`/api/items/${id}/play`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          // CRITICAL: Prevent sending conflicting web-UI cookies
-          credentials: 'same-origin', 
+          // CRITICAL: Ignore existing web-UI cookies that cause 404 conflicts
+          credentials: 'omit', 
           body: JSON.stringify({ 
-            // Use a unique, static ID for the car player
-            deviceId: 'hidden-scrolls-car-pi-fixed', 
+            // Unique, static ID for session stability
+            deviceId: 'hidden-scrolls-car-pi-v1', 
             supportedMimeTypes: ['audio/mpeg'],
-            forceDirectPlay: true // Ensures raw file access instead of transcoding
+            forceDirectPlay: true 
           })
         });
         const data = await res.json();
         
-        // Audiobookshelf returns the session ID required for the /stream endpoint
+        // Audiobookshelf returns the session ID required for authorized streaming
         if (data.id) {
-          console.log("✅ Playback session active:", data.id);
+          console.log("✅ Car session active:", data.id);
           setSessionId(data.id); 
         }
       } catch (err) {
-        console.error("❌ Handshake failed:", err);
+        console.error("❌ Session initialization failed:", err);
       }
     };
     initSession();
@@ -75,8 +75,7 @@ export default function Player() {
   const chapters = book.media?.chapters || [];
   const coverUrl = getProxyUrl(`/api/items/${id}/cover`);
   
-  // STEP 2: BUILD DYNAMIC STREAM URL
-  // This path structure is required once a session is started
+  // STEP 2: BUILD AUTHORIZED STREAM URL
   const audioUrl = sessionId ? getProxyUrl(`/api/items/${id}/stream/${sessionId}`) : null;
 
   return (
@@ -95,18 +94,17 @@ export default function Player() {
         </button>
       </div>
 
-      {/* HIDDEN BACKGROUND AUDIO */}
       <audio ref={silentRef} src={SILENT_AUDIO_SRC} loop />
 
       {/* MAIN PLAYER UI */}
       <div className="w-full max-w-3xl flex flex-col items-center">
         
-        {/* Artwork */}
+        {/* Cover Art */}
         <div className="aspect-[2/3] w-48 md:w-64 bg-slate-800 rounded-lg shadow-2xl overflow-hidden mb-6">
           <img src={coverUrl} alt="Cover" className="w-full h-full object-cover" />
         </div>
 
-        {/* Book Info */}
+        {/* Info */}
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold mb-2">{metadata.title}</h1>
           <p className="text-gray-400 text-lg">{metadata.authorName}</p>
@@ -126,8 +124,8 @@ export default function Player() {
             <audio 
               ref={audioRef} 
               controls 
-              // The 'key' forces the audio element to re-initialize once the sessionId is received
-              key={sessionId || 'loading'} 
+              // The 'key' ensures the audio element reloads exactly when the authorized session is ready
+              key={sessionId || 'authorizing'} 
               className="w-full h-10 invert-[.9]"
               onLoadedMetadata={handleLoadedMetadata}
               onTimeUpdate={() => localStorage.setItem(`progress_${id}`, audioRef.current.currentTime)}
@@ -135,10 +133,10 @@ export default function Player() {
             >
               {audioUrl && <source src={audioUrl} type="audio/mpeg" />}
             </audio>
-            {!sessionId && <p className="text-center text-xs text-yellow-500 mt-2 italic animate-pulse">Initializing Secure Handshake...</p>}
+            {!sessionId && <p className="text-center text-xs text-yellow-500 mt-2 italic animate-pulse">Initializing Secure Session...</p>}
         </div>
 
-        {/* CHAPTER LIST */}
+        {/* CHAPTERS */}
         <div className="w-full">
           <h3 className="text-xl font-bold mb-4 text-emerald-400">Chapters</h3>
           <div className="bg-slate-800 rounded-xl overflow-hidden shadow-lg divide-y divide-slate-700 max-h-64 overflow-y-auto">

@@ -16,7 +16,14 @@ app.all('/api/proxy', async (req, res) => {
 
   const token = (process.env.ABS_API_TOKEN || '').trim();
   const baseUrl = process.env.ABS_BASE_URL.replace(/\/$/, '');
-  const targetUrl = `${baseUrl}/${originalPath.replace(/^\//, '')}`;
+  
+  // Sanitize path to handle the subfolder correctly
+  let sanitizedPath = originalPath.startsWith('/') ? originalPath.substring(1) : originalPath;
+  if (baseUrl.endsWith('/audiobookshelf') && sanitizedPath.startsWith('audiobookshelf/')) {
+    sanitizedPath = sanitizedPath.replace('audiobookshelf/', '');
+  }
+
+  const targetUrl = `${baseUrl}/${sanitizedPath}`;
   
   try {
     const response = await axios({
@@ -25,8 +32,8 @@ app.all('/api/proxy', async (req, res) => {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Range': req.headers.range || 'bytes=0-',
-        // Only forward cookies if they specifically contain a session ID for THIS stream
-        'Cookie': req.headers.cookie || '', 
+        // CRITICAL: We DO NOT forward req.headers.cookie here to prevent 
+        // conflicts with existing ABS web sessions
         'User-Agent': req.headers['user-agent']
       },
       data: req.body,
@@ -35,14 +42,13 @@ app.all('/api/proxy', async (req, res) => {
       validateStatus: () => true 
     });
 
-    // Logging only critical info to keep terminal clean
     if (response.status >= 400) {
-      console.error(`❌ ABS ERROR [${response.status}] for: ${originalPath}`);
+      console.error(`❌ ABS ERROR [${response.status}] for URL: ${targetUrl}`);
     } else {
-      console.log(`✅ ABS SUCCESS [${response.status}]: ${originalPath}`);
+      console.log(`✅ ABS SUCCESS [${response.status}]: ${sanitizedPath}`);
     }
 
-    const forwardHeaders = ['content-type', 'content-range', 'accept-ranges', 'content-length', 'set-cookie'];
+    const forwardHeaders = ['content-type', 'content-range', 'accept-ranges', 'content-length'];
     forwardHeaders.forEach(h => { if (response.headers[h]) res.setHeader(h, response.headers[h]); });
 
     res.status(response.status);
@@ -56,4 +62,4 @@ app.all('/api/proxy', async (req, res) => {
 app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
 
-app.listen(PORT, () => console.log(`🚀 Final Proxy running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Isolated Proxy active on port ${PORT}`));
