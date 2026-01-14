@@ -11,8 +11,8 @@ export default function Player() {
   const [bluetoothMode, setBluetoothMode] = useState(false);
   const [sessionId, setSessionId] = useState(null); 
   const audioRef = useRef(null);
-  const silentRef = useRef(null);
-  const seekProcessed = useRef(false);
+  const silentRef = useRef(null); 
+  const seekApplied = useRef(false); // Flag to stop seeking once it works
 
   useEffect(() => {
     fetchBookDetails(id).then(setBook);
@@ -21,15 +21,15 @@ export default function Player() {
         const res = await fetch(getProxyUrl(`/api/items/${id}/play`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'omit',
+          credentials: 'omit', // Prevent session pollution
           body: JSON.stringify({ 
-            deviceId: 'car-player-pi-final-v7', 
+            deviceId: 'car-player-pi-final-v9', 
             supportedMimeTypes: ['audio/mpeg', 'audio/mp4'],
             forceDirectPlay: true 
           })
         });
         const data = await res.json();
-        if (data.id) setSessionId(data.id);
+        if (data.id) setSessionId(data.id); 
       } catch (err) { console.error("❌ Session failed:", err); }
     };
     initSession();
@@ -42,37 +42,35 @@ export default function Player() {
     }
   }, [bluetoothMode]);
 
-  // THE AGGRESSIVE RESUME LOOP
+  // THE PERSISTENT SEEK SENTINEL
   useEffect(() => {
     if (!sessionId) return;
 
-    const forceSeekInterval = setInterval(() => {
+    const interval = setInterval(() => {
       const audio = audioRef.current;
       const savedTime = localStorage.getItem(`progress_${id}`);
       
-      if (audio && savedTime && !seekProcessed.current) {
+      if (audio && savedTime && !seekApplied.current) {
         const target = parseFloat(savedTime);
         
-        // Wait until browser has enough data to know the duration
+        // Mobile browsers need duration > 0 and readyState >= 1 to allow seeking
         if (audio.duration > 0 && audio.readyState >= 1) {
-          console.log(`🚀 Force-seeking to ${target}s...`);
+          console.log(`🎯 Attempting persistent resume at: ${target}s`);
           audio.currentTime = target;
           
-          // If the jump worked, stop the loop
-          if (Math.abs(audio.currentTime - target) < 1) {
-            seekProcessed.current = true;
-            clearInterval(forceSeekInterval);
+          // If the browser accepted the seek, stop the "hammering"
+          if (Math.abs(audio.currentTime - target) < 2) {
+            seekApplied.current = true;
+            clearInterval(interval);
           }
         }
-      } else if (seekProcessed.current) {
-        clearInterval(forceSeekInterval);
       }
-    }, 500); // Check every half-second
+    }, 500); // Check every 500ms
 
-    return () => clearInterval(forceSeekInterval);
+    return () => clearInterval(interval);
   }, [sessionId, id]);
 
-  if (!book) return <div className="p-10 text-white text-center font-bold">Locking Session...</div>;
+  if (!book) return <div className="p-10 text-white text-center">Resuming...</div>;
 
   const audioUrl = sessionId ? getProxyUrl(`/public/session/${sessionId}/track/1`) : null;
 
@@ -102,8 +100,8 @@ export default function Player() {
               key={sessionId || 'loading'} 
               className="w-full h-12 invert-[.9]"
               onTimeUpdate={() => {
-                // Only save progress AFTER the initial seek has finished
-                if (audioRef.current && seekProcessed.current && audioRef.current.currentTime > 1) {
+                // Only start saving progress AFTER we've successfully resumed
+                if (audioRef.current && seekApplied.current && audioRef.current.currentTime > 1) {
                   localStorage.setItem(`progress_${id}`, audioRef.current.currentTime);
                 }
               }}
@@ -114,7 +112,7 @@ export default function Player() {
             </audio>
         </div>
 
-        <div className="w-full max-w-3xl">
+        <div className="w-full">
           <h3 className="text-lg font-bold mb-4 text-emerald-400 px-2">Chapters</h3>
           <div className="bg-slate-800 rounded-2xl divide-y divide-slate-700 max-h-80 overflow-y-auto border border-slate-700">
             {book.media?.chapters?.map((c, i) => (
