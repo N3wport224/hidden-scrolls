@@ -32,7 +32,7 @@ app.all('/api/proxy', async (req, res) => {
       validateStatus: () => true 
     });
 
-    // CRITICAL FOR MOBILE: Forward these specific headers to allow seeking/duration
+    // CRITICAL: Forward these headers exactly to let the phone see the file duration
     const headersToForward = [
       'content-type',
       'content-length',
@@ -45,7 +45,6 @@ app.all('/api/proxy', async (req, res) => {
       if (response.headers[h]) res.setHeader(h, response.headers[h]);
     });
 
-    // Mirror the status (especially 206 for streaming)
     res.status(response.status);
     response.data.pipe(res);
   } catch (error) {
@@ -57,4 +56,4 @@ app.all('/api/proxy', async (req, res) => {
 app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
 
-app.listen(PORT, () => console.log(`🚀 Final Transparent Proxy on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Final Transparent Proxy active on port ${PORT}`));
