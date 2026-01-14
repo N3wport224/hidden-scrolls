@@ -17,7 +17,7 @@ app.all('/api/proxy', async (req, res) => {
   const token = (process.env.ABS_API_TOKEN || '').trim();
   const baseUrl = process.env.ABS_BASE_URL.replace(/\/$/, '');
   
-  // Directly append the requested path to the base URL without guessing subfolders
+  // Use the exact path provided by the frontend without forcing /api/ prefix
   const targetUrl = `${baseUrl}/${originalPath.replace(/^\//, '')}`;
   
   try {
@@ -55,4 +55,4 @@ app.all('/api/proxy', async (req, res) => {
 app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
 
-app.listen(PORT, () => console.log(`🚀 Path-Aware Proxy active on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Session-Aware Proxy active on port ${PORT}`));

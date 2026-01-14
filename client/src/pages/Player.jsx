@@ -17,10 +17,9 @@ export default function Player() {
         const res = await fetch(getProxyUrl(`/api/items/${id}/play`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          // Ignore admin cookies to avoid path/session conflicts
-          credentials: 'omit', 
+          credentials: 'omit', // Ignore admin cookies to avoid path/session conflicts
           body: JSON.stringify({ 
-            deviceId: 'car-player-path-fix-v1', 
+            deviceId: 'car-player-public-path-v1', 
             supportedMimeTypes: ['audio/mpeg'],
             forceDirectPlay: true 
           })
@@ -37,7 +36,9 @@ export default function Player() {
   const metadata = book.media?.metadata || {};
   const chapters = book.media?.chapters || [];
   const coverUrl = getProxyUrl(`/api/items/${id}/cover`);
-  const audioUrl = sessionId ? getProxyUrl(`/api/items/${id}/stream/${sessionId}`) : null;
+
+  // CHANGED: Use the /public/session path structure you found in the ABS source code
+  const audioUrl = sessionId ? getProxyUrl(`/public/session/${sessionId}/track/1`) : null;
 
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center p-6 text-center">
