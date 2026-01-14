@@ -12,6 +12,7 @@ export default function Player() {
   const [sessionId, setSessionId] = useState(null); 
   const audioRef = useRef(null);
   const silentRef = useRef(null); 
+  const hasSought = useRef(false); // Persistent check to ensure we only seek once per load
   
   useEffect(() => {
     fetchBookDetails(id).then(setBook);
@@ -20,37 +21,46 @@ export default function Player() {
         const res = await fetch(getProxyUrl(`/api/items/${id}/play`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'omit', // Keeps the session clean from admin cookies
+          credentials: 'omit', // Crucial to avoid session pollution
           body: JSON.stringify({ 
-            deviceId: 'car-player-pi-final', 
+            deviceId: 'car-player-pi-final-v4', 
             supportedMimeTypes: ['audio/mpeg', 'audio/mp4'],
             forceDirectPlay: true 
           })
         });
         const data = await res.json();
         if (data.id) setSessionId(data.id); 
-      } catch (err) { console.error("❌ Session failed:", err); }
+      } catch (err) { console.error("❌ Session handshake failed:", err); }
     };
     initSession();
   }, [id]);
 
+  // Bluetooth Keep-Alive
   useEffect(() => {
     if (silentRef.current) {
       bluetoothMode ? silentRef.current.play().catch(() => {}) : silentRef.current.pause();
     }
   }, [bluetoothMode]);
 
-  // IMPROVED RESUME: Forces the seek after the browser acknowledges the file length
-  const handleLoadedMetadata = () => {
+  // FINAL RESUME LOGIC: Forces the jump when the phone is ready
+  const attemptSeek = () => {
+    if (hasSought.current || !audioRef.current) return;
+
     const savedTime = localStorage.getItem(`progress_${id}`);
-    if (savedTime && audioRef.current) {
+    if (savedTime) {
       const targetTime = parseFloat(savedTime);
-      console.log(`🎯 Metadata Loaded. Forcing seek to: ${targetTime}s`);
-      audioRef.current.currentTime = targetTime;
+      // Only seek if the audio engine has enough data to know its duration
+      if (audioRef.current.duration > 0) {
+        console.log(`🎯 Locking resume at: ${targetTime}s`);
+        audioRef.current.currentTime = targetTime;
+        hasSought.current = true;
+      }
+    } else {
+      hasSought.current = true; // No saved time, consider "sought" finished
     }
   };
 
-  if (!book) return <div className="p-10 text-white text-center font-bold">Loading...</div>;
+  if (!book) return <div className="p-10 text-white text-center font-bold">Resuming Session...</div>;
 
   const audioUrl = sessionId ? getProxyUrl(`/public/session/${sessionId}/track/1`) : null;
 
@@ -80,7 +90,9 @@ export default function Player() {
               controls 
               key={sessionId || 'loading'} 
               className="w-full h-12 invert-[.9]"
-              onLoadedMetadata={handleLoadedMetadata}
+              // Trigger seek as early and as often as possible until it sticks
+              onLoadedMetadata={attemptSeek}
+              onCanPlay={attemptSeek}
               onTimeUpdate={() => {
                 if (audioRef.current && audioRef.current.currentTime > 0) {
                     localStorage.setItem(`progress_${id}`, audioRef.current.currentTime);
