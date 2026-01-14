@@ -7,7 +7,7 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Enable CORS with credentials for cookie support
+// CRITICAL: Credentials MUST be true for session cookies to work
 app.use(cors({ 
   origin: true, 
   credentials: true 
@@ -21,7 +21,7 @@ app.all('/api/proxy', async (req, res) => {
   const token = (process.env.ABS_API_TOKEN || '').trim();
   const baseUrl = process.env.ABS_BASE_URL.replace(/\/$/, '');
   
-  // Prevent double subfolders in the target URL
+  // Sanitize path to prevent double-subfolder errors
   let sanitizedPath = originalPath.startsWith('/') ? originalPath.substring(1) : originalPath;
   if (baseUrl.endsWith('/audiobookshelf') && sanitizedPath.startsWith('audiobookshelf/')) {
     sanitizedPath = sanitizedPath.replace('audiobookshelf/', '');
@@ -36,7 +36,7 @@ app.all('/api/proxy', async (req, res) => {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Range': req.headers.range || 'bytes=0-',
-        'Cookie': req.headers.cookie || '', // Forward cookies back to ABS
+        'Cookie': req.headers.cookie || '', // Forward browser cookies back to ABS
       },
       data: req.body,
       responseType: 'stream',
@@ -44,16 +44,18 @@ app.all('/api/proxy', async (req, res) => {
       validateStatus: () => true 
     });
 
-    // Detailed diagnostic logging
+    // Precise logging for the 404 hunt
     if (response.status >= 400) {
-      console.error(`❌ ABS ERROR [${response.status}] for: ${targetUrl}`);
+      console.error(`❌ ABS ERROR [${response.status}] for URL: ${targetUrl}`);
     } else {
       console.log(`✅ ABS SUCCESS [${response.status}]: ${sanitizedPath}`);
     }
 
     // Forward crucial session and streaming headers
     const forwardHeaders = ['content-type', 'content-range', 'accept-ranges', 'content-length', 'set-cookie'];
-    forwardHeaders.forEach(h => { if (response.headers[h]) res.setHeader(h, response.headers[h]); });
+    forwardHeaders.forEach(h => { 
+      if (response.headers[h]) res.setHeader(h, response.headers[h]); 
+    });
 
     res.status(response.status);
     response.data.pipe(res);

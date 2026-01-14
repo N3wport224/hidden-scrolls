@@ -16,15 +16,14 @@ export default function Player() {
   useEffect(() => {
     fetchBookDetails(id).then(setBook);
     
-    // STEP 1: INITIALIZE SESSION HANDSHAKE
     const initSession = async () => {
       try {
         const res = await fetch(getProxyUrl(`/api/items/${id}/play`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'include', // CRITICAL: Save session cookie
+          credentials: 'include', // CRITICAL: Tells browser to save the session cookie
           body: JSON.stringify({ 
-            deviceId: 'hidden-scrolls-pi', 
+            deviceId: 'hidden-scrolls-pi-v1', // Static ID for session stability
             supportedMimeTypes: ['audio/mpeg'],
             forceDirectPlay: true 
           })
@@ -52,17 +51,11 @@ export default function Player() {
     if (savedTime && audioRef.current) audioRef.current.currentTime = parseFloat(savedTime);
   };
 
-  const skip = (seconds) => {
-    if (audioRef.current) audioRef.current.currentTime += seconds;
-  };
-
   if (!book) return <div className="p-10 text-center text-white">Loading...</div>;
 
   const metadata = book.media?.metadata || {};
   const chapters = book.media?.chapters || [];
   const coverUrl = getProxyUrl(`/api/items/${id}/cover`);
-  
-  // STEP 2: BUILD DYNAMIC STREAM URL
   const audioUrl = sessionId ? getProxyUrl(`/api/items/${id}/stream/${sessionId}`) : null;
 
   return (
@@ -90,15 +83,10 @@ export default function Player() {
         </div>
 
         <div className="w-full bg-slate-800 p-6 rounded-xl shadow-lg mb-8 text-center">
-            <div className="flex justify-center gap-8 mb-6">
-              <button onClick={() => skip(-15)} className="rounded-full bg-slate-700 w-16 h-16 text-lg">↺ 15</button>
-              <button onClick={() => skip(30)} className="rounded-full bg-slate-700 w-16 h-16 text-lg">30 ↻</button>
-            </div>
-
             <audio 
               ref={audioRef} 
               controls 
-              key={sessionId} // Force reload when session is ready
+              key={sessionId} // Force reload when session ID is ready
               className="w-full h-10 invert-[.9]"
               onLoadedMetadata={handleLoadedMetadata}
               onTimeUpdate={() => localStorage.setItem(`progress_${id}`, audioRef.current.currentTime)}
