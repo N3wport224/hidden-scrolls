@@ -11,9 +11,9 @@ export default function Player() {
   const [bluetoothMode, setBluetoothMode] = useState(false);
   const [sessionId, setSessionId] = useState(null); 
   const audioRef = useRef(null);
-  const silentRef = useRef(null); 
-  const seekApplied = useRef(false); // Persistent flag to prevent loop-fighting
-  
+  const silentRef = useRef(null);
+  const seekProcessed = useRef(false);
+
   useEffect(() => {
     fetchBookDetails(id).then(setBook);
     const initSession = async () => {
@@ -21,57 +21,58 @@ export default function Player() {
         const res = await fetch(getProxyUrl(`/api/items/${id}/play`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'omit', // Crucial to avoid session pollution
+          credentials: 'omit',
           body: JSON.stringify({ 
-            deviceId: 'car-player-pi-final-v5', 
+            deviceId: 'car-player-pi-final-v7', 
             supportedMimeTypes: ['audio/mpeg', 'audio/mp4'],
             forceDirectPlay: true 
           })
         });
         const data = await res.json();
-        if (data.id) setSessionId(data.id); 
+        if (data.id) setSessionId(data.id);
       } catch (err) { console.error("❌ Session failed:", err); }
     };
     initSession();
   }, [id]);
 
-  // THE SENTINEL: This effect runs every time the audio element or session changes
+  // Bluetooth Keep-Alive
   useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio || !sessionId) return;
+    if (silentRef.current) {
+      bluetoothMode ? silentRef.current.play().catch(() => {}) : silentRef.current.pause();
+    }
+  }, [bluetoothMode]);
 
-    const handleSeek = () => {
-      if (seekApplied.current) return;
-      
+  // THE AGGRESSIVE RESUME LOOP
+  useEffect(() => {
+    if (!sessionId) return;
+
+    const forceSeekInterval = setInterval(() => {
+      const audio = audioRef.current;
       const savedTime = localStorage.getItem(`progress_${id}`);
-      if (savedTime) {
+      
+      if (audio && savedTime && !seekProcessed.current) {
         const target = parseFloat(savedTime);
-        // Mobile browsers need the duration to be known (> 0) before they allow seeking
-        if (audio.duration > 0 && audio.readyState >= 1) { 
-          console.log(`🎯 Sentinel Forcing Seek: ${target}s`);
+        
+        // Wait until browser has enough data to know the duration
+        if (audio.duration > 0 && audio.readyState >= 1) {
+          console.log(`🚀 Force-seeking to ${target}s...`);
           audio.currentTime = target;
-          seekApplied.current = true;
+          
+          // If the jump worked, stop the loop
+          if (Math.abs(audio.currentTime - target) < 1) {
+            seekProcessed.current = true;
+            clearInterval(forceSeekInterval);
+          }
         }
-      } else {
-        seekApplied.current = true;
+      } else if (seekProcessed.current) {
+        clearInterval(forceSeekInterval);
       }
-    };
+    }, 500); // Check every half-second
 
-    // Listen to every event that might mean the browser is "ready"
-    audio.addEventListener('loadedmetadata', handleSeek);
-    audio.addEventListener('durationchange', handleSeek);
-    audio.addEventListener('canplay', handleSeek);
-    audio.addEventListener('play', handleSeek); // iOS often waits until play is pressed
-
-    return () => {
-      audio.removeEventListener('loadedmetadata', handleSeek);
-      audio.removeEventListener('durationchange', handleSeek);
-      audio.removeEventListener('canplay', handleSeek);
-      audio.removeEventListener('play', handleSeek);
-    };
+    return () => clearInterval(forceSeekInterval);
   }, [sessionId, id]);
 
-  if (!book) return <div className="p-10 text-white text-center">Resuming...</div>;
+  if (!book) return <div className="p-10 text-white text-center font-bold">Locking Session...</div>;
 
   const audioUrl = sessionId ? getProxyUrl(`/public/session/${sessionId}/track/1`) : null;
 
@@ -101,9 +102,9 @@ export default function Player() {
               key={sessionId || 'loading'} 
               className="w-full h-12 invert-[.9]"
               onTimeUpdate={() => {
-                // Only save if the audio is actually playing and beyond the start
-                if (audioRef.current && audioRef.current.currentTime > 1) {
-                    localStorage.setItem(`progress_${id}`, audioRef.current.currentTime);
+                // Only save progress AFTER the initial seek has finished
+                if (audioRef.current && seekProcessed.current && audioRef.current.currentTime > 1) {
+                  localStorage.setItem(`progress_${id}`, audioRef.current.currentTime);
                 }
               }}
               preload="auto" 
@@ -113,7 +114,7 @@ export default function Player() {
             </audio>
         </div>
 
-        <div className="w-full">
+        <div className="w-full max-w-3xl">
           <h3 className="text-lg font-bold mb-4 text-emerald-400 px-2">Chapters</h3>
           <div className="bg-slate-800 rounded-2xl divide-y divide-slate-700 max-h-80 overflow-y-auto border border-slate-700">
             {book.media?.chapters?.map((c, i) => (
