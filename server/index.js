@@ -10,6 +10,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// --- UNIVERSAL HANDSHAKE PROXY ---
 app.all('/api/proxy', async (req, res) => {
   const originalPath = req.query.path;
   if (!originalPath) return res.status(400).send("Missing path");
@@ -17,7 +18,7 @@ app.all('/api/proxy', async (req, res) => {
   const token = (process.env.ABS_API_TOKEN || '').trim();
   const baseUrl = process.env.ABS_BASE_URL.replace(/\/$/, '');
   
-  // Construct the target URL carefully to avoid double-slashes or missing subfolders
+  // Construct the target URL
   const targetUrl = `${baseUrl}${originalPath.startsWith('/') ? originalPath : '/' + originalPath}`;
   
   try {
@@ -29,15 +30,15 @@ app.all('/api/proxy', async (req, res) => {
         'Range': req.headers.range || 'bytes=0-',
         'Content-Type': 'application/json'
       },
-      data: req.body,
+      data: req.body, 
       responseType: 'stream',
       maxRedirects: 5,
       validateStatus: () => true 
     });
 
-    // Logging for troubleshooting
+    // Detailed Logging for Troubleshooting
     if (response.status >= 400) {
-      console.error(`❌ ABS ERROR [${response.status}]: ${originalPath}`);
+      console.error(`❌ ABS ERROR [${response.status}] for URL: ${targetUrl}`);
     } else {
       console.log(`✅ ABS SUCCESS [${response.status}]: ${originalPath}`);
     }

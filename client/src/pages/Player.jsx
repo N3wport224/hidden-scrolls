@@ -2,7 +2,6 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchBookDetails, getProxyUrl } from '../lib/api';
 
-// Silent MP3 to keep Bluetooth alive during pauses or quiet moments
 const SILENT_AUDIO_SRC = "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD//////////////////////////////////////////////////////////////////wAAAAAATGF2YzU4LjU0AAAAAAAAAAAAAAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD//////////////////////////////////////////////////////////////////wAAAAAATGF2YzU4LjU0AAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
 export default function Player() {
@@ -24,17 +23,14 @@ export default function Player() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
-            // Generate a unique deviceId to avoid session conflicts
             deviceId: 'hidden-scrolls-pi-' + Math.random().toString(36).substr(2, 5), 
             supportedMimeTypes: ['audio/mpeg'],
-            forceDirectPlay: true // CRITICAL: Ensures raw file access instead of transcoding
+            forceDirectPlay: true 
           })
         });
         const data = await res.json();
-        
-        // Audiobookshelf returns the session ID required for the /stream endpoint
         if (data.id) {
-          console.log("✅ Playback session initialized:", data.id);
+          console.log("✅ Session ID Active:", data.id);
           setSessionId(data.id); 
         }
       } catch (err) {
@@ -44,22 +40,15 @@ export default function Player() {
     initSession();
   }, [id]);
 
-  // Bluetooth Keep-Alive Toggle
   useEffect(() => {
     if (silentRef.current) {
-      if (bluetoothMode) {
-        silentRef.current.play().catch(e => console.log("Silent play blocked:", e));
-      } else {
-        silentRef.current.pause();
-      }
+      bluetoothMode ? silentRef.current.play().catch(() => {}) : silentRef.current.pause();
     }
   }, [bluetoothMode]);
 
   const handleLoadedMetadata = () => {
     const savedTime = localStorage.getItem(`progress_${id}`);
-    if (savedTime && audioRef.current) {
-      audioRef.current.currentTime = parseFloat(savedTime);
-    }
+    if (savedTime && audioRef.current) audioRef.current.currentTime = parseFloat(savedTime);
   };
 
   const skip = (seconds) => {
@@ -73,57 +62,39 @@ export default function Player() {
   const coverUrl = getProxyUrl(`/api/items/${id}/cover`);
   
   // STEP 2: BUILD DYNAMIC STREAM URL
-  // This URL path structure is required once a session is started
   const audioUrl = sessionId ? getProxyUrl(`/api/items/${id}/stream/${sessionId}`) : null;
 
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center p-6">
-      
-      {/* HEADER CONTROLS */}
-      <div className="w-full max-w-3xl flex justify-between items-center mb-6 z-10">
-        <button onClick={() => navigate('/')} className="text-gray-400 hover:text-white text-lg px-4 py-2">
-          ← Library
-        </button>
-        <button 
-          onClick={() => setBluetoothMode(!bluetoothMode)}
-          className={`px-4 py-2 rounded-full font-bold text-sm transition-all ${bluetoothMode ? 'bg-emerald-600 text-white shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'bg-slate-700 text-gray-300'}`}
-        >
+      <div className="w-full max-w-3xl flex justify-between items-center mb-6">
+        <button onClick={() => navigate('/')} className="text-gray-400 hover:text-white px-4 py-2">← Library</button>
+        <button onClick={() => setBluetoothMode(!bluetoothMode)} className={`px-4 py-2 rounded-full font-bold text-sm ${bluetoothMode ? 'bg-emerald-600' : 'bg-slate-700'}`}>
           {bluetoothMode ? 'Bluetooth Active' : 'Enable Bluetooth Mode'}
         </button>
       </div>
 
-      {/* HIDDEN BACKGROUND AUDIO */}
       <audio ref={silentRef} src={SILENT_AUDIO_SRC} loop />
 
-      {/* MAIN PLAYER UI */}
       <div className="w-full max-w-3xl flex flex-col items-center">
-        
-        {/* Artwork */}
         <div className="aspect-[2/3] w-48 md:w-64 bg-slate-800 rounded-lg shadow-2xl overflow-hidden mb-6">
           <img src={coverUrl} alt="Cover" className="w-full h-full object-cover" />
         </div>
 
-        {/* Book Info */}
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold mb-2">{metadata.title}</h1>
           <p className="text-gray-400 text-lg">{metadata.authorName}</p>
         </div>
 
-        {/* AUDIO ENGINE */}
         <div className="w-full bg-slate-800 p-6 rounded-xl shadow-lg mb-8">
             <div className="flex justify-center gap-8 mb-6">
-              <button onClick={() => skip(-15)} className="rounded-full bg-slate-700 hover:bg-slate-600 flex items-center justify-center w-16 h-16 text-lg transition">
-                ↺ 15
-              </button>
-              <button onClick={() => skip(30)} className="rounded-full bg-slate-700 hover:bg-slate-600 flex items-center justify-center w-16 h-16 text-lg transition">
-                30 ↻
-              </button>
+              <button onClick={() => skip(-15)} className="rounded-full bg-slate-700 w-16 h-16 text-lg transition">↺ 15</button>
+              <button onClick={() => skip(30)} className="rounded-full bg-slate-700 w-16 h-16 text-lg transition">30 ↻</button>
             </div>
 
             <audio 
               ref={audioRef} 
               controls 
-              key={sessionId} // Forces the audio element to re-initialize once the sessionId is received
+              key={sessionId} 
               className="w-full h-10 invert-[.9]"
               onLoadedMetadata={handleLoadedMetadata}
               onTimeUpdate={() => localStorage.setItem(`progress_${id}`, audioRef.current.currentTime)}
@@ -131,26 +102,20 @@ export default function Player() {
             >
               {audioUrl && <source src={audioUrl} type="audio/mpeg" />}
             </audio>
-            {!sessionId && <p className="text-center text-xs text-yellow-500 mt-2 italic animate-pulse">Initializing Secure Handshake...</p>}
+            {!sessionId && <p className="text-center text-xs text-yellow-500 mt-2 italic animate-pulse">Initializing Handshake...</p>}
         </div>
 
-        {/* CHAPTER LIST */}
         <div className="w-full">
           <h3 className="text-xl font-bold mb-4 text-emerald-400">Chapters</h3>
-          <div className="bg-slate-800 rounded-xl overflow-hidden shadow-lg divide-y divide-slate-700 max-h-64 overflow-y-auto">
+          <div className="bg-slate-800 rounded-xl divide-y divide-slate-700 max-h-64 overflow-y-auto">
             {chapters.map((c, i) => (
-              <button 
-                key={i} 
-                onClick={() => { if(audioRef.current) { audioRef.current.currentTime = c.start; audioRef.current.play(); } }} 
-                className="w-full text-left p-4 hover:bg-slate-700 transition flex justify-between"
-              >
-                <span className="font-medium text-gray-300">{c.title || `Chapter ${i + 1}`}</span>
+              <button key={i} onClick={() => {audioRef.current.currentTime = c.start; audioRef.current.play();}} className="w-full text-left p-4 hover:bg-slate-700 flex justify-between">
+                <span className="text-gray-300">{c.title || `Chapter ${i + 1}`}</span>
                 <span className="text-gray-500 text-sm">{new Date(c.start * 1000).toISOString().substr(11, 8)}</span>
               </button>
             ))}
           </div>
         </div>
-
       </div>
     </div>
   );
