@@ -16,6 +16,8 @@ app.all('/api/proxy', async (req, res) => {
 
   const token = (process.env.ABS_API_TOKEN || '').trim();
   const baseUrl = process.env.ABS_BASE_URL.replace(/\/$/, '');
+  
+  // Construct the target URL carefully to avoid double-slashes or missing subfolders
   const targetUrl = `${baseUrl}${originalPath.startsWith('/') ? originalPath : '/' + originalPath}`;
   
   try {
@@ -27,12 +29,13 @@ app.all('/api/proxy', async (req, res) => {
         'Range': req.headers.range || 'bytes=0-',
         'Content-Type': 'application/json'
       },
-      data: req.body, 
+      data: req.body,
       responseType: 'stream',
       maxRedirects: 5,
       validateStatus: () => true 
     });
 
+    // Logging for troubleshooting
     if (response.status >= 400) {
       console.error(`❌ ABS ERROR [${response.status}]: ${originalPath}`);
     } else {
