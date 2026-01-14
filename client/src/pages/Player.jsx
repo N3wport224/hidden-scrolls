@@ -21,9 +21,9 @@ export default function Player() {
         const res = await fetch(getProxyUrl(`/api/items/${id}/play`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'include', // CRITICAL: Tells browser to save the session cookie
+          credentials: 'include', // CRITICAL: Save the session cookie
           body: JSON.stringify({ 
-            deviceId: 'hidden-scrolls-pi-v1', // Static ID for session stability
+            deviceId: 'hidden-scrolls-pi-v1', // Static ID for stability
             supportedMimeTypes: ['audio/mpeg'],
             forceDirectPlay: true 
           })
