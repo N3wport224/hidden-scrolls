@@ -12,7 +12,7 @@ export default function Player() {
   const [sessionId, setSessionId] = useState(null); 
   const audioRef = useRef(null);
   const silentRef = useRef(null); 
-  const seekApplied = useRef(false);
+  const seekApplied = useRef(false); // Flag to ensure we only auto-seek once per session
 
   useEffect(() => {
     fetchBookDetails(id).then(setBook);
@@ -23,7 +23,7 @@ export default function Player() {
           headers: { 'Content-Type': 'application/json' },
           credentials: 'omit', 
           body: JSON.stringify({ 
-            deviceId: 'car-player-pi-final-v10', 
+            deviceId: 'car-player-pi-final-v11', 
             supportedMimeTypes: ['audio/mpeg', 'audio/mp4'],
             forceDirectPlay: true 
           })
@@ -41,24 +41,20 @@ export default function Player() {
     }
   }, [bluetoothMode]);
 
-  // THE HARD-LOCK SEEK FUNCTION
-  const forceResume = () => {
+  // THE LOCKED RESUME LOGIC
+  const handlePlayUnlock = () => {
     if (seekApplied.current || !audioRef.current) return;
     
     const savedTime = localStorage.getItem(`progress_${id}`);
-    if (savedTime && audioRef.current.duration > 0) {
+    if (savedTime) {
       const target = parseFloat(savedTime);
-      console.log(`🎯 Hard-locking seek to: ${target}s`);
+      console.log(`🎯 Stream active. Snapping playhead to: ${target}s`);
       audioRef.current.currentTime = target;
-      
-      // Check if it actually stuck
-      if (Math.abs(audioRef.current.currentTime - target) < 1) {
-        seekApplied.current = true;
-      }
+      seekApplied.current = true;
     }
   };
 
-  if (!book) return <div className="p-10 text-white text-center">Syncing...</div>;
+  if (!book) return <div className="p-10 text-white text-center">Resuming...</div>;
 
   const audioUrl = sessionId ? getProxyUrl(`/public/session/${sessionId}/track/1`) : null;
 
@@ -87,16 +83,10 @@ export default function Player() {
               controls 
               key={sessionId || 'loading'} 
               className="w-full h-12 invert-[.9]"
-              onLoadedMetadata={forceResume}
-              onPlay={forceResume} // Force seek again when user hits play
+              // Trigger seek ONLY when the audio is actually moving
+              onPlaying={handlePlayUnlock}
               onTimeUpdate={() => {
-                if (!audioRef.current) return;
-                
-                // If we haven't successfully sought yet, keep trying while playing
-                if (!seekApplied.current) {
-                  forceResume();
-                } else if (audioRef.current.currentTime > 1) {
-                  // Only save progress once we are past the initial seek lock
+                if (audioRef.current && seekApplied.current && audioRef.current.currentTime > 1) {
                   localStorage.setItem(`progress_${id}`, audioRef.current.currentTime);
                 }
               }}
