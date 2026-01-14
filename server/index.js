@@ -7,11 +7,8 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Enable CORS with credentials support for session cookies
-app.use(cors({
-  origin: true,
-  credentials: true 
-}));
+// Enable credentials for cookie-based session tracking
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
 app.all('/api/proxy', async (req, res) => {
@@ -21,7 +18,7 @@ app.all('/api/proxy', async (req, res) => {
   const token = (process.env.ABS_API_TOKEN || '').trim();
   const baseUrl = process.env.ABS_BASE_URL.replace(/\/$/, '');
   
-  // Sanitize path to prevent double-subfolder errors
+  // Align the path by removing redundant subfolders
   let sanitizedPath = originalPath.startsWith('/') ? originalPath.substring(1) : originalPath;
   if (baseUrl.endsWith('/audiobookshelf') && sanitizedPath.startsWith('audiobookshelf/')) {
     sanitizedPath = sanitizedPath.replace('audiobookshelf/', '');
@@ -36,7 +33,7 @@ app.all('/api/proxy', async (req, res) => {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Range': req.headers.range || 'bytes=0-',
-        'Cookie': req.headers.cookie || '', // Forward browser cookies back to ABS
+        'Cookie': req.headers.cookie || '', // Pass browser cookies back to ABS
       },
       data: req.body,
       responseType: 'stream',
@@ -44,18 +41,16 @@ app.all('/api/proxy', async (req, res) => {
       validateStatus: () => true 
     });
 
-    // Detailed diagnostic logging
+    // Final logging for URL verification
     if (response.status >= 400) {
-      console.error(`❌ ABS ERROR [${response.status}] for URL: ${targetUrl}`);
+      console.error(`❌ ABS ERROR [${response.status}] for: ${targetUrl}`);
     } else {
       console.log(`✅ ABS SUCCESS [${response.status}]: ${sanitizedPath}`);
     }
 
-    // Forward streaming and session headers
+    // Forward crucial headers so the browser accepts the stream
     const forwardHeaders = ['content-type', 'content-range', 'accept-ranges', 'content-length', 'set-cookie'];
-    forwardHeaders.forEach(h => { 
-      if (response.headers[h]) res.setHeader(h, response.headers[h]); 
-    });
+    forwardHeaders.forEach(h => { if (response.headers[h]) res.setHeader(h, response.headers[h]); });
 
     res.status(response.status);
     response.data.pipe(res);
