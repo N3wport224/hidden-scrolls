@@ -16,8 +16,6 @@ app.all('/api/proxy', async (req, res) => {
 
   const token = (process.env.ABS_API_TOKEN || '').trim();
   const baseUrl = process.env.ABS_BASE_URL.replace(/\/$/, '');
-  
-  // Use the exact path provided by the frontend
   const targetUrl = `${baseUrl}/${originalPath.replace(/^\//, '')}`;
   
   try {
@@ -27,27 +25,31 @@ app.all('/api/proxy', async (req, res) => {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Range': req.headers.range || 'bytes=0-',
-        'Cookie': req.headers.cookie || '', 
-        'User-Agent': req.headers['user-agent'] // Mirror browser identity
+        'User-Agent': req.headers['user-agent'] // Mirror phone identity
       },
       data: req.body,
       responseType: 'stream',
       validateStatus: () => true 
     });
 
-    if (response.status >= 400) {
-      console.error(`❌ ABS ERROR [${response.status}] for: ${targetUrl}`);
-    } else {
-      console.log(`✅ ABS SUCCESS [${response.status}]: ${originalPath}`);
-    }
+    // CRITICAL: Mobile browsers require these for seeking and buffering
+    const forwardHeaders = [
+      'content-type', 
+      'content-range', 
+      'accept-ranges', 
+      'content-length', 
+      'cache-control'
+    ];
+    
+    forwardHeaders.forEach(h => { 
+      if (response.headers[h]) res.setHeader(h, response.headers[h]); 
+    });
 
-    const forwardHeaders = ['content-type', 'content-range', 'accept-ranges', 'content-length', 'set-cookie'];
-    forwardHeaders.forEach(h => { if (response.headers[h]) res.setHeader(h, response.headers[h]); });
-
+    console.log(`✅ [${response.status}] Serving to phone: ${originalPath}`);
     res.status(response.status);
     response.data.pipe(res);
   } catch (error) {
-    console.error("💀 Proxy Crash:", error.message);
+    console.error("💀 Proxy Error:", error.message);
     if (!res.headersSent) res.status(500).send("Proxy Error");
   }
 });
@@ -55,4 +57,4 @@ app.all('/api/proxy', async (req, res) => {
 app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
 
-app.listen(PORT, () => console.log(`🚀 Session-Aware Proxy active on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Mobile-Optimized Proxy on port ${PORT}`));
