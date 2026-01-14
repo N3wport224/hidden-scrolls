@@ -7,7 +7,11 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors({ origin: true, credentials: true })); // Mandatory for session cookies
+// CRITICAL: Credentials must be true for session cookies to function
+app.use(cors({ 
+  origin: true, 
+  credentials: true 
+}));
 app.use(express.json());
 
 app.all('/api/proxy', async (req, res) => {
@@ -32,23 +36,29 @@ app.all('/api/proxy', async (req, res) => {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Range': req.headers.range || 'bytes=0-',
-        'Cookie': req.headers.cookie || '', // Forward browser cookies back to ABS
-        'User-Agent': req.headers['user-agent'] // Mirror browser UA to prevent device mismatch
+        'Cookie': req.headers.cookie || '', 
+        // Mirror the browser's identity to satisfy ABS security checks
+        'User-Agent': req.headers['user-agent'],
+        'X-Forwarded-For': req.ip
       },
       data: req.body,
       responseType: 'stream',
+      maxRedirects: 5,
       validateStatus: () => true 
     });
 
+    // Precise logging for monitoring the 404
     if (response.status >= 400) {
       console.error(`❌ ABS ERROR [${response.status}] for URL: ${targetUrl}`);
     } else {
       console.log(`✅ ABS SUCCESS [${response.status}]: ${sanitizedPath}`);
     }
 
-    // Forward ALL critical headers for streaming and session management
+    // Forward ALL critical streaming and session headers
     const forwardHeaders = ['content-type', 'content-range', 'accept-ranges', 'content-length', 'set-cookie', 'cache-control'];
-    forwardHeaders.forEach(h => { if (response.headers[h]) res.setHeader(h, response.headers[h]); });
+    forwardHeaders.forEach(h => { 
+      if (response.headers[h]) res.setHeader(h, response.headers[h]); 
+    });
 
     res.status(response.status);
     response.data.pipe(res);
@@ -58,6 +68,7 @@ app.all('/api/proxy', async (req, res) => {
   }
 });
 
+// Serve the built React frontend
 app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
 
