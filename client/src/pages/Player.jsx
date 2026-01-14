@@ -19,7 +19,7 @@ export default function Player() {
           headers: { 'Content-Type': 'application/json' },
           credentials: 'omit',
           body: JSON.stringify({ 
-            deviceId: 'car-player-pi-final', 
+            deviceId: 'car-player-final-fix', 
             supportedMimeTypes: ['audio/mpeg'],
             forceDirectPlay: true 
           })
@@ -31,36 +31,41 @@ export default function Player() {
     initSession();
   }, [id]);
 
-  // RESUME LOGIC: Triggers as soon as the phone successfully loads metadata
   const handleMetadata = () => {
     const savedTime = localStorage.getItem(`progress_${id}`);
     if (savedTime && audioRef.current) {
       audioRef.current.currentTime = parseFloat(savedTime);
+      // Attempt to play immediately once metadata is ready
+      audioRef.current.play().catch(() => console.log("Waiting for user tap..."));
     }
   };
 
-  if (!book) return <div className="p-10 text-center text-white">Loading...</div>;
+  if (!book) return <div className="p-10 text-center text-white font-bold">Connecting...</div>;
 
+  const metadata = book.media?.metadata || {};
   const chapters = book.media?.chapters || [];
   const audioUrl = sessionId ? getProxyUrl(`/public/session/${sessionId}/track/1`) : null;
 
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center p-6">
-      <div className="w-full max-w-3xl flex justify-between items-center mb-6">
-        <button onClick={() => navigate('/')} className="font-bold px-4 py-2">← Library</button>
+      <div className="w-full max-w-3xl flex justify-between mb-8">
+        <button onClick={() => navigate('/')} className="text-gray-400 font-bold">← Library</button>
       </div>
 
       <div className="w-full max-w-3xl flex flex-col items-center">
-        <div className="aspect-[2/3] w-48 bg-slate-800 rounded-lg shadow-2xl mb-8 overflow-hidden">
-          <img src={getProxyUrl(`/api/items/${id}/cover`)} className="w-full h-full object-cover" />
+        <div className="aspect-[2/3] w-56 bg-slate-800 rounded-xl shadow-2xl mb-8 overflow-hidden border border-slate-700">
+          <img src={getProxyUrl(`/api/items/${id}/cover`)} className="w-full h-full object-cover" alt="Cover" />
         </div>
 
-        <div className="w-full bg-slate-800 p-6 rounded-xl shadow-lg mb-8">
+        <h1 className="text-2xl font-bold text-center mb-1">{metadata.title}</h1>
+        <p className="text-gray-400 mb-8">{metadata.authorName}</p>
+
+        <div className="w-full bg-slate-800 p-8 rounded-2xl shadow-lg mb-8 border border-slate-700">
             <audio 
               ref={audioRef} 
               controls 
               key={sessionId || 'loading'} 
-              className="w-full h-10 invert-[.9]"
+              className="w-full h-12 invert-[.9]"
               onLoadedMetadata={handleMetadata}
               onTimeUpdate={() => {
                 if (audioRef.current) localStorage.setItem(`progress_${id}`, audioRef.current.currentTime);
@@ -68,22 +73,22 @@ export default function Player() {
               preload="auto" 
               playsInline 
             >
-              {/* Force the type to audio/mpeg to help mobile browsers */}
               {audioUrl && <source src={audioUrl} type="audio/mpeg" />}
             </audio>
+            {!sessionId && <p className="text-center text-yellow-500 text-sm mt-4 animate-pulse">Handshaking with Server...</p>}
         </div>
 
         <div className="w-full">
           <h3 className="text-xl font-bold mb-4 text-emerald-400">Chapters</h3>
-          <div className="bg-slate-800 rounded-xl divide-y divide-slate-700 max-h-80 overflow-y-auto">
+          <div className="bg-slate-800 rounded-xl divide-y divide-slate-700 max-h-64 overflow-y-auto border border-slate-700">
             {chapters.map((c, i) => (
               <button 
                 key={i} 
                 onClick={() => { if(audioRef.current) { audioRef.current.currentTime = c.start; audioRef.current.play(); } }} 
-                className="w-full p-4 hover:bg-slate-700 flex justify-between"
+                className="w-full p-4 hover:bg-slate-700 flex justify-between text-left"
               >
-                <span>{c.title || `Chapter ${i + 1}`}</span>
-                <span className="text-gray-500">{new Date(c.start * 1000).toISOString().substr(11, 8)}</span>
+                <span className="font-medium">{c.title || `Chapter ${i + 1}`}</span>
+                <span className="text-gray-500 text-sm">{new Date(c.start * 1000).toISOString().substr(11, 8)}</span>
               </button>
             ))}
           </div>

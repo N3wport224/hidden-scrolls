@@ -32,20 +32,23 @@ app.all('/api/proxy', async (req, res) => {
       validateStatus: () => true 
     });
 
-    // CRITICAL: Mobile devices need these specific headers to show the total time
+    // CRITICAL for Mobile: Pass these headers exactly as they come from ABS
     const headersToForward = [
       'content-type',
       'content-length',
       'content-range',
-      'accept-ranges', // Allows phone to see the end of the file
-      'cache-control'
+      'accept-ranges', 
+      'cache-control',
+      'last-modified'
     ];
 
     headersToForward.forEach(h => {
       if (response.headers[h]) res.setHeader(h, response.headers[h]);
     });
 
-    console.log(`📡 [${response.status}] Streaming to phone: ${originalPath}`);
+    // Log the actual type being sent to the phone for debugging
+    console.log(`📡 [${response.status}] Type: ${response.headers['content-type']} -> ${originalPath}`);
+    
     res.status(response.status);
     response.data.pipe(res);
   } catch (error) {
@@ -57,4 +60,4 @@ app.all('/api/proxy', async (req, res) => {
 app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
 
-app.listen(PORT, () => console.log(`🚀 Final Proxy Engine active on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Transparent Proxy Engine active on port ${PORT}`));
