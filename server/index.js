@@ -25,27 +25,27 @@ app.all('/api/proxy', async (req, res) => {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Range': req.headers.range || 'bytes=0-',
-        'User-Agent': req.headers['user-agent'] // Mirror phone identity
+        'User-Agent': req.headers['user-agent']
       },
       data: req.body,
       responseType: 'stream',
       validateStatus: () => true 
     });
 
-    // CRITICAL: Mobile browsers require these for seeking and buffering
-    const forwardHeaders = [
-      'content-type', 
-      'content-range', 
-      'accept-ranges', 
-      'content-length', 
+    // CRITICAL: Mobile devices need these specific headers to show the total time
+    const headersToForward = [
+      'content-type',
+      'content-length',
+      'content-range',
+      'accept-ranges', // Allows phone to see the end of the file
       'cache-control'
     ];
-    
-    forwardHeaders.forEach(h => { 
-      if (response.headers[h]) res.setHeader(h, response.headers[h]); 
+
+    headersToForward.forEach(h => {
+      if (response.headers[h]) res.setHeader(h, response.headers[h]);
     });
 
-    console.log(`✅ [${response.status}] Serving to phone: ${originalPath}`);
+    console.log(`📡 [${response.status}] Streaming to phone: ${originalPath}`);
     res.status(response.status);
     response.data.pipe(res);
   } catch (error) {
@@ -57,4 +57,4 @@ app.all('/api/proxy', async (req, res) => {
 app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
 
-app.listen(PORT, () => console.log(`🚀 Mobile-Optimized Proxy on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Final Proxy Engine active on port ${PORT}`));
