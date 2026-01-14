@@ -17,7 +17,7 @@ app.all('/api/proxy', async (req, res) => {
   const token = (process.env.ABS_API_TOKEN || '').trim();
   const baseUrl = process.env.ABS_BASE_URL.replace(/\/$/, '');
   
-  // SANITIZE THE PATH: Remove leading slash and redundant subfolder
+  // Clean the path to prevent double /audiobookshelf/ folders
   let sanitizedPath = originalPath.startsWith('/') ? originalPath.substring(1) : originalPath;
   if (baseUrl.endsWith('/audiobookshelf') && sanitizedPath.startsWith('audiobookshelf/')) {
     sanitizedPath = sanitizedPath.replace('audiobookshelf/', '');
@@ -32,6 +32,7 @@ app.all('/api/proxy', async (req, res) => {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Range': req.headers.range || 'bytes=0-',
+        'Cookie': req.headers.cookie || '', // Forward cookies to maintain session
       },
       data: req.body,
       responseType: 'stream',
@@ -45,7 +46,8 @@ app.all('/api/proxy', async (req, res) => {
       console.log(`✅ ABS SUCCESS [${response.status}]: ${sanitizedPath}`);
     }
 
-    const forwardHeaders = ['content-type', 'content-range', 'accept-ranges', 'content-length'];
+    // Forward streaming headers
+    const forwardHeaders = ['content-type', 'content-range', 'accept-ranges', 'content-length', 'set-cookie'];
     forwardHeaders.forEach(h => { if (response.headers[h]) res.setHeader(h, response.headers[h]); });
 
     res.status(response.status);
@@ -59,4 +61,4 @@ app.all('/api/proxy', async (req, res) => {
 app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
 
-app.listen(PORT, () => console.log(`🚀 Final Proxy running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Handshake Proxy running on port ${PORT}`));
