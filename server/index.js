@@ -25,10 +25,8 @@ app.all('/api/proxy', async (req, res) => {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Range': req.headers.range || 'bytes=0-',
-        // Forward browser cookies ONLY if they exist to maintain the session chain
-        'Cookie': req.headers.cookie || '', 
-        // CRITICAL: Mirror the browser identity to satisfy ABS security
-        'User-Agent': req.headers['user-agent']
+        'Cookie': req.headers.cookie || '', // Forward the browser's session cookies
+        'User-Agent': req.headers['user-agent'] // CRITICAL: Mirror the browser identity
       },
       data: req.body,
       responseType: 'stream',
@@ -55,4 +53,4 @@ app.all('/api/proxy', async (req, res) => {
 app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
 
-app.listen(PORT, () => console.log(`🚀 Permanent Proxy active on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Final Proxy running on port ${PORT}`));

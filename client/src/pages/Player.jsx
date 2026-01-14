@@ -20,7 +20,7 @@ export default function Player() {
           // CRITICAL: Force the browser to ignore conflicting admin cookies
           credentials: 'omit', 
           body: JSON.stringify({ 
-            deviceId: 'car-player-final-isolated-v1', 
+            deviceId: 'car-player-vfinal-unique', 
             supportedMimeTypes: ['audio/mpeg'],
             forceDirectPlay: true 
           })
@@ -35,14 +35,14 @@ export default function Player() {
   if (!book) return <div className="p-10 text-center text-white">Loading...</div>;
 
   const metadata = book.media?.metadata || {};
-  const chapters = book.media?.chapters || []; // Restore chapter list
+  const chapters = book.media?.chapters || []; // Chapters restored
   const coverUrl = getProxyUrl(`/api/items/${id}/cover`);
   const audioUrl = sessionId ? getProxyUrl(`/api/items/${id}/stream/${sessionId}`) : null;
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center p-6">
-      <div className="aspect-[2/3] w-48 md:w-64 bg-slate-800 rounded-lg shadow-2xl mb-6">
-        <img src={coverUrl} alt="Cover" className="w-full h-full object-cover rounded-lg" />
+    <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center p-6 text-center">
+      <div className="aspect-[2/3] w-48 md:w-64 bg-slate-800 rounded-lg shadow-2xl mb-6 overflow-hidden">
+        <img src={coverUrl} alt="Cover" className="w-full h-full object-cover" />
       </div>
 
       <div className="w-full max-w-3xl bg-slate-800 p-6 rounded-xl shadow-lg mb-8">
@@ -58,14 +58,14 @@ export default function Player() {
       </div>
 
       <div className="w-full max-w-3xl">
-        <h3 className="text-xl font-bold mb-4 text-emerald-400 text-center">Chapters</h3>
-        <div className="bg-slate-800 rounded-xl divide-y divide-slate-700 max-h-64 overflow-y-auto">
-          {chapters.length > 0 ? chapters.map((c, i) => (
-            <button key={i} onClick={() => {if(audioRef.current){audioRef.current.currentTime = c.start; audioRef.current.play();}}} className="w-full text-left p-4 hover:bg-slate-700 flex justify-between">
+        <h3 className="text-xl font-bold mb-4 text-emerald-400">Chapters</h3>
+        <div className="bg-slate-800 rounded-xl divide-y divide-slate-700 max-h-64 overflow-y-auto text-left">
+          {chapters.map((c, i) => (
+            <button key={i} onClick={() => {if(audioRef.current){audioRef.current.currentTime = c.start; audioRef.current.play();}}} className="w-full p-4 hover:bg-slate-700 flex justify-between transition">
               <span className="text-gray-200">{c.title || `Chapter ${i + 1}`}</span>
               <span className="text-gray-500 text-sm">{new Date(c.start * 1000).toISOString().substr(11, 8)}</span>
             </button>
-          )) : <p className="p-4 text-center text-gray-500 italic">No chapters found.</p>}
+          ))}
         </div>
       </div>
     </div>
