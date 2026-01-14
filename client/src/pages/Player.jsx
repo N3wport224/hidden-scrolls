@@ -11,7 +11,6 @@ export default function Player() {
   
   useEffect(() => {
     fetchBookDetails(id).then(setBook);
-    
     const initSession = async () => {
       try {
         const res = await fetch(getProxyUrl(`/api/items/${id}/play`), {
@@ -19,8 +18,8 @@ export default function Player() {
           headers: { 'Content-Type': 'application/json' },
           credentials: 'omit',
           body: JSON.stringify({ 
-            deviceId: 'car-player-final-fix', 
-            supportedMimeTypes: ['audio/mpeg'],
+            deviceId: 'car-player-final-v3', 
+            supportedMimeTypes: ['audio/mpeg', 'audio/mp4'],
             forceDirectPlay: true 
           })
         });
@@ -31,19 +30,17 @@ export default function Player() {
     initSession();
   }, [id]);
 
-  const handleMetadata = () => {
-    const savedTime = localStorage.getItem(`progress_${id}`);
-    if (savedTime && audioRef.current) {
-      audioRef.current.currentTime = parseFloat(savedTime);
-      // Attempt to play immediately once metadata is ready
-      audioRef.current.play().catch(() => console.log("Waiting for user tap..."));
+  const forceLoad = () => {
+    if (audioRef.current) {
+      audioRef.current.load(); // Forces the browser to re-request the source
+      const savedTime = localStorage.getItem(`progress_${id}`);
+      if (savedTime) audioRef.current.currentTime = parseFloat(savedTime);
+      audioRef.current.play().catch(e => console.log("Unlock playback..."));
     }
   };
 
-  if (!book) return <div className="p-10 text-center text-white font-bold">Connecting...</div>;
+  if (!book) return <div className="p-10 text-center text-white">Connecting...</div>;
 
-  const metadata = book.media?.metadata || {};
-  const chapters = book.media?.chapters || [];
   const audioUrl = sessionId ? getProxyUrl(`/public/session/${sessionId}/track/1`) : null;
 
   return (
@@ -53,20 +50,23 @@ export default function Player() {
       </div>
 
       <div className="w-full max-w-3xl flex flex-col items-center">
-        <div className="aspect-[2/3] w-56 bg-slate-800 rounded-xl shadow-2xl mb-8 overflow-hidden border border-slate-700">
-          <img src={getProxyUrl(`/api/items/${id}/cover`)} className="w-full h-full object-cover" alt="Cover" />
+        <div className="aspect-[2/3] w-48 bg-slate-800 rounded-xl shadow-2xl mb-8 overflow-hidden">
+          <img src={getProxyUrl(`/api/items/${id}/cover`)} className="w-full h-full object-cover" />
         </div>
 
-        <h1 className="text-2xl font-bold text-center mb-1">{metadata.title}</h1>
-        <p className="text-gray-400 mb-8">{metadata.authorName}</p>
-
-        <div className="w-full bg-slate-800 p-8 rounded-2xl shadow-lg mb-8 border border-slate-700">
+        <div className="w-full bg-slate-800 p-8 rounded-2xl shadow-lg mb-8 border border-slate-700 text-center">
+            <button 
+                onClick={forceLoad}
+                className="mb-6 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-8 rounded-full shadow-lg"
+            >
+                Initialize Audio Engine
+            </button>
+            
             <audio 
               ref={audioRef} 
               controls 
               key={sessionId || 'loading'} 
               className="w-full h-12 invert-[.9]"
-              onLoadedMetadata={handleMetadata}
               onTimeUpdate={() => {
                 if (audioRef.current) localStorage.setItem(`progress_${id}`, audioRef.current.currentTime);
               }}
@@ -75,20 +75,18 @@ export default function Player() {
             >
               {audioUrl && <source src={audioUrl} type="audio/mpeg" />}
             </audio>
-            {!sessionId && <p className="text-center text-yellow-500 text-sm mt-4 animate-pulse">Handshaking with Server...</p>}
         </div>
 
+        {/* Chapters */}
         <div className="w-full">
-          <h3 className="text-xl font-bold mb-4 text-emerald-400">Chapters</h3>
-          <div className="bg-slate-800 rounded-xl divide-y divide-slate-700 max-h-64 overflow-y-auto border border-slate-700">
-            {chapters.map((c, i) => (
+          <div className="bg-slate-800 rounded-xl divide-y divide-slate-700 max-h-64 overflow-y-auto">
+            {book.media?.chapters?.map((c, i) => (
               <button 
                 key={i} 
                 onClick={() => { if(audioRef.current) { audioRef.current.currentTime = c.start; audioRef.current.play(); } }} 
                 className="w-full p-4 hover:bg-slate-700 flex justify-between text-left"
               >
-                <span className="font-medium">{c.title || `Chapter ${i + 1}`}</span>
-                <span className="text-gray-500 text-sm">{new Date(c.start * 1000).toISOString().substr(11, 8)}</span>
+                <span>{c.title || `Chapter ${i + 1}`}</span>
               </button>
             ))}
           </div>
