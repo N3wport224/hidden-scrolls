@@ -17,7 +17,7 @@ app.all('/api/proxy', async (req, res) => {
   const token = (process.env.ABS_API_TOKEN || '').trim();
   const baseUrl = process.env.ABS_BASE_URL.replace(/\/$/, '');
   
-  // Use the exact path provided by the frontend without forcing /api/ prefix
+  // Use the exact path provided by the frontend
   const targetUrl = `${baseUrl}/${originalPath.replace(/^\//, '')}`;
   
   try {
@@ -28,7 +28,7 @@ app.all('/api/proxy', async (req, res) => {
         'Authorization': `Bearer ${token}`,
         'Range': req.headers.range || 'bytes=0-',
         'Cookie': req.headers.cookie || '', 
-        'User-Agent': req.headers['user-agent'] // Mirror the browser
+        'User-Agent': req.headers['user-agent'] // Mirror browser identity
       },
       data: req.body,
       responseType: 'stream',
