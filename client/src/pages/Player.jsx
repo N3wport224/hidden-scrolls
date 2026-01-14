@@ -17,28 +17,30 @@ export default function Player() {
     fetchBookDetails(id).then(setBook);
     
     // STEP 1: CAPTURE SESSION ID FROM HANDSHAKE
-    const initSession = async () => {
-      try {
-        const res = await fetch(getProxyUrl(`/api/items/${id}/play`), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            deviceId: 'hidden-scrolls-pi', 
-            supportedMimeTypes: ['audio/mpeg'],
-            forceDirectPlay: true 
-          })
-        });
-        const data = await res.json();
-        
-        // If the server returns an ID, save it to build the stream URL
-        if (data.id) {
-          console.log("✅ Session ID Active:", data.id);
-          setSessionId(data.id); 
-        }
-      } catch (err) {
-        console.error("❌ Handshake failed:", err);
-      }
-    };
+    // Inside Player.jsx
+const initSession = async () => {
+  try {
+    const res = await fetch(getProxyUrl(`/api/items/${id}/play`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        deviceId: 'hidden-scrolls-pi', 
+        supportedMimeTypes: ['audio/mpeg'],
+        forceDirectPlay: true 
+      })
+    });
+    
+    const data = await res.json();
+    // CAPTURE THE ID FROM THE SUCCESSFUL [200] RESPONSE
+    if (data.id) {
+      console.log("✅ Session ID captured:", data.id);
+      setSessionId(data.id); 
+    }
+  } catch (err) {
+    console.error("❌ Handshake failed:", err);
+  }
+};
+
     initSession();
   }, [id]);
 
