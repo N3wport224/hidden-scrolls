@@ -16,13 +16,13 @@ export default function Player() {
   useEffect(() => {
     fetchBookDetails(id).then(setBook);
     
-    // STEP 1: INITIALIZE SESSION HANDSHAKE
     const initSession = async () => {
       try {
         const res = await fetch(getProxyUrl(`/api/items/${id}/play`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'include', // CRITICAL: Save session cookie
+          // CRITICAL: Tells browser to save the session cookie
+          credentials: 'include', 
           body: JSON.stringify({ 
             deviceId: 'hidden-scrolls-pi', 
             supportedMimeTypes: ['audio/mpeg'],
@@ -57,15 +57,16 @@ export default function Player() {
   const metadata = book.media?.metadata || {};
   const chapters = book.media?.chapters || [];
   const coverUrl = getProxyUrl(`/api/items/${id}/cover`);
-  
-  // STEP 2: BUILD DYNAMIC STREAM URL
   const audioUrl = sessionId ? getProxyUrl(`/api/items/${id}/stream/${sessionId}`) : null;
 
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center p-6">
-      <div className="w-full max-w-3xl flex justify-between items-center mb-6">
+      <div className="w-full max-w-3xl flex justify-between items-center mb-6 z-10">
         <button onClick={() => navigate('/')} className="text-gray-400 hover:text-white px-4 py-2">← Library</button>
-        <button onClick={() => setBluetoothMode(!bluetoothMode)} className={`px-4 py-2 rounded-full font-bold text-sm ${bluetoothMode ? 'bg-emerald-600 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'bg-slate-700'}`}>
+        <button 
+          onClick={() => setBluetoothMode(!bluetoothMode)}
+          className={`px-4 py-2 rounded-full font-bold text-sm ${bluetoothMode ? 'bg-emerald-600 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'bg-slate-700'}`}
+        >
           {bluetoothMode ? 'Bluetooth Active' : 'Enable Bluetooth Mode'}
         </button>
       </div>

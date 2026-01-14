@@ -7,7 +7,7 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Enable CORS with credentials for cookie support
+// CRITICAL: Enable credentials to support session cookies
 app.use(cors({ 
   origin: true, 
   credentials: true 
@@ -36,7 +36,7 @@ app.all('/api/proxy', async (req, res) => {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Range': req.headers.range || 'bytes=0-',
-        'Cookie': req.headers.cookie || '', // Forward cookies back to ABS
+        'Cookie': req.headers.cookie || '', // Forward browser cookies back to ABS
       },
       data: req.body,
       responseType: 'stream',
@@ -44,14 +44,13 @@ app.all('/api/proxy', async (req, res) => {
       validateStatus: () => true 
     });
 
-    // Detailed diagnostic logging
     if (response.status >= 400) {
       console.error(`❌ ABS ERROR [${response.status}] for: ${targetUrl}`);
     } else {
       console.log(`✅ ABS SUCCESS [${response.status}]: ${sanitizedPath}`);
     }
 
-    // Forward crucial session and streaming headers
+    // Forward session and streaming headers
     const forwardHeaders = ['content-type', 'content-range', 'accept-ranges', 'content-length', 'set-cookie'];
     forwardHeaders.forEach(h => { if (response.headers[h]) res.setHeader(h, response.headers[h]); });
 
