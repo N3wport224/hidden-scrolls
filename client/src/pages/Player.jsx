@@ -17,10 +17,10 @@ export default function Player() {
         const res = await fetch(getProxyUrl(`/api/items/${id}/play`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          // CRITICAL: Ignore conflicting admin cookies
+          // CRITICAL: Force the browser to ignore conflicting admin cookies
           credentials: 'omit', 
           body: JSON.stringify({ 
-            deviceId: 'car-player-final-isolated', 
+            deviceId: 'car-player-final-isolated-v1', 
             supportedMimeTypes: ['audio/mpeg'],
             forceDirectPlay: true 
           })
@@ -35,7 +35,7 @@ export default function Player() {
   if (!book) return <div className="p-10 text-center text-white">Loading...</div>;
 
   const metadata = book.media?.metadata || {};
-  const chapters = book.media?.chapters || []; // Restores chapter data
+  const chapters = book.media?.chapters || []; // Restore chapter list
   const coverUrl = getProxyUrl(`/api/items/${id}/cover`);
   const audioUrl = sessionId ? getProxyUrl(`/api/items/${id}/stream/${sessionId}`) : null;
 
@@ -58,14 +58,14 @@ export default function Player() {
       </div>
 
       <div className="w-full max-w-3xl">
-        <h3 className="text-xl font-bold mb-4 text-emerald-400">Chapters</h3>
+        <h3 className="text-xl font-bold mb-4 text-emerald-400 text-center">Chapters</h3>
         <div className="bg-slate-800 rounded-xl divide-y divide-slate-700 max-h-64 overflow-y-auto">
-          {chapters.map((c, i) => (
+          {chapters.length > 0 ? chapters.map((c, i) => (
             <button key={i} onClick={() => {if(audioRef.current){audioRef.current.currentTime = c.start; audioRef.current.play();}}} className="w-full text-left p-4 hover:bg-slate-700 flex justify-between">
-              <span>{c.title || `Chapter ${i + 1}`}</span>
+              <span className="text-gray-200">{c.title || `Chapter ${i + 1}`}</span>
               <span className="text-gray-500 text-sm">{new Date(c.start * 1000).toISOString().substr(11, 8)}</span>
             </button>
-          ))}
+          )) : <p className="p-4 text-center text-gray-500 italic">No chapters found.</p>}
         </div>
       </div>
     </div>

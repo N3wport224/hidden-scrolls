@@ -25,7 +25,7 @@ app.all('/api/proxy', async (req, res) => {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Range': req.headers.range || 'bytes=0-',
-        // Only forward cookies if specifically sent by our custom player
+        // Forward browser cookies ONLY if they exist to maintain the session chain
         'Cookie': req.headers.cookie || '', 
         // CRITICAL: Mirror the browser identity to satisfy ABS security
         'User-Agent': req.headers['user-agent']
