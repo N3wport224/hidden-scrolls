@@ -37,7 +37,7 @@ app.all('/api/proxy', async (req, res) => {
         'Authorization': `Bearer ${token}`,
         'Range': req.headers.range || 'bytes=0-',
         'Cookie': req.headers.cookie || '', 
-        // Mirror the browser's exact identity
+        // Mirror the browser's exact identity to satisfy ABS security filters
         'User-Agent': req.headers['user-agent'],
         'X-Forwarded-For': req.ip
       },
@@ -47,7 +47,7 @@ app.all('/api/proxy', async (req, res) => {
       validateStatus: () => true 
     });
 
-    // Logging the EXACT URL for the 404 hunt
+    // Logging the EXACT URL for the final 404 hunt
     if (response.status >= 400) {
       console.error(`❌ ABS ERROR [${response.status}] for URL: ${targetUrl}`);
     } else {

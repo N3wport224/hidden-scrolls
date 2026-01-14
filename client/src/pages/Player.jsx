@@ -21,10 +21,10 @@ export default function Player() {
         const res = await fetch(getProxyUrl(`/api/items/${id}/play`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          // MANDATORY: Tells the browser to save/send the session cookie
+          // MANDATORY: Tells the browser to save/send session cookies
           credentials: 'include', 
           body: JSON.stringify({ 
-            deviceId: 'hidden-scrolls-pi-v1', // Static ID for stability
+            deviceId: 'hidden-scrolls-pi-fixed-v1', // Static ID for session stability
             supportedMimeTypes: ['audio/mpeg'],
             forceDirectPlay: true 
           })
@@ -55,7 +55,6 @@ export default function Player() {
   if (!book) return <div className="p-10 text-center text-white">Loading...</div>;
 
   const metadata = book.media?.metadata || {};
-  const chapters = book.media?.chapters || [];
   const coverUrl = getProxyUrl(`/api/items/${id}/cover`);
   const audioUrl = sessionId ? getProxyUrl(`/api/items/${id}/stream/${sessionId}`) : null;
 
@@ -87,7 +86,7 @@ export default function Player() {
             <audio 
               ref={audioRef} 
               controls 
-              // Force the audio element to reload ONLY when session is authorized
+              // Force the audio element to reload ONLY when the session is authorized
               key={sessionId || 'loading'} 
               className="w-full h-10 invert-[.9]"
               onLoadedMetadata={handleLoadedMetadata}
@@ -97,18 +96,6 @@ export default function Player() {
               {audioUrl && <source src={audioUrl} type="audio/mpeg" />}
             </audio>
             {!sessionId && <p className="text-center text-xs text-yellow-500 mt-2 animate-pulse italic">Initializing Handshake...</p>}
-        </div>
-
-        <div className="w-full">
-          <h3 className="text-xl font-bold mb-4 text-emerald-400">Chapters</h3>
-          <div className="bg-slate-800 rounded-xl divide-y divide-slate-700 max-h-64 overflow-y-auto">
-            {chapters.map((c, i) => (
-              <button key={i} onClick={() => {if(audioRef.current){audioRef.current.currentTime = c.start; audioRef.current.play();}}} className="w-full text-left p-4 hover:bg-slate-700 flex justify-between">
-                <span className="text-gray-300 font-medium">{c.title || `Chapter ${i + 1}`}</span>
-                <span className="text-gray-500 text-sm">{new Date(c.start * 1000).toISOString().substr(11, 8)}</span>
-              </button>
-            ))}
-          </div>
         </div>
       </div>
     </div>
