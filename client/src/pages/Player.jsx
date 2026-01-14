@@ -112,7 +112,7 @@ export default function Player() {
             >
               {audioUrl && <source src={audioUrl} type="audio/mpeg" />}
             </audio>
-            {!sessionId && <p className="text-center text-xs text-yellow-500 mt-2 animate-pulse">Initializing Session...</p>}
+            {!sessionId && <p className="text-center text-xs text-yellow-500 mt-2 italic animate-pulse">Initializing Session...</p>}
         </div>
 
         <div className="w-full">
