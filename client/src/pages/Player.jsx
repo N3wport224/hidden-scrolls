@@ -12,7 +12,7 @@ export default function Player() {
   const [sessionId, setSessionId] = useState(null); 
   const audioRef = useRef(null);
   const silentRef = useRef(null); 
-  const seekApplied = useRef(false); // Flag to stop seeking once it works
+  const seekApplied = useRef(false);
 
   useEffect(() => {
     fetchBookDetails(id).then(setBook);
@@ -21,9 +21,9 @@ export default function Player() {
         const res = await fetch(getProxyUrl(`/api/items/${id}/play`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'omit', // Prevent session pollution
+          credentials: 'omit', 
           body: JSON.stringify({ 
-            deviceId: 'car-player-pi-final-v9', 
+            deviceId: 'car-player-pi-final-v10', 
             supportedMimeTypes: ['audio/mpeg', 'audio/mp4'],
             forceDirectPlay: true 
           })
@@ -35,42 +35,30 @@ export default function Player() {
     initSession();
   }, [id]);
 
-  // Bluetooth Keep-Alive
   useEffect(() => {
     if (silentRef.current) {
       bluetoothMode ? silentRef.current.play().catch(() => {}) : silentRef.current.pause();
     }
   }, [bluetoothMode]);
 
-  // THE PERSISTENT SEEK SENTINEL
-  useEffect(() => {
-    if (!sessionId) return;
-
-    const interval = setInterval(() => {
-      const audio = audioRef.current;
-      const savedTime = localStorage.getItem(`progress_${id}`);
+  // THE HARD-LOCK SEEK FUNCTION
+  const forceResume = () => {
+    if (seekApplied.current || !audioRef.current) return;
+    
+    const savedTime = localStorage.getItem(`progress_${id}`);
+    if (savedTime && audioRef.current.duration > 0) {
+      const target = parseFloat(savedTime);
+      console.log(`🎯 Hard-locking seek to: ${target}s`);
+      audioRef.current.currentTime = target;
       
-      if (audio && savedTime && !seekApplied.current) {
-        const target = parseFloat(savedTime);
-        
-        // Mobile browsers need duration > 0 and readyState >= 1 to allow seeking
-        if (audio.duration > 0 && audio.readyState >= 1) {
-          console.log(`🎯 Attempting persistent resume at: ${target}s`);
-          audio.currentTime = target;
-          
-          // If the browser accepted the seek, stop the "hammering"
-          if (Math.abs(audio.currentTime - target) < 2) {
-            seekApplied.current = true;
-            clearInterval(interval);
-          }
-        }
+      // Check if it actually stuck
+      if (Math.abs(audioRef.current.currentTime - target) < 1) {
+        seekApplied.current = true;
       }
-    }, 500); // Check every 500ms
+    }
+  };
 
-    return () => clearInterval(interval);
-  }, [sessionId, id]);
-
-  if (!book) return <div className="p-10 text-white text-center">Resuming...</div>;
+  if (!book) return <div className="p-10 text-white text-center">Syncing...</div>;
 
   const audioUrl = sessionId ? getProxyUrl(`/public/session/${sessionId}/track/1`) : null;
 
@@ -99,9 +87,16 @@ export default function Player() {
               controls 
               key={sessionId || 'loading'} 
               className="w-full h-12 invert-[.9]"
+              onLoadedMetadata={forceResume}
+              onPlay={forceResume} // Force seek again when user hits play
               onTimeUpdate={() => {
-                // Only start saving progress AFTER we've successfully resumed
-                if (audioRef.current && seekApplied.current && audioRef.current.currentTime > 1) {
+                if (!audioRef.current) return;
+                
+                // If we haven't successfully sought yet, keep trying while playing
+                if (!seekApplied.current) {
+                  forceResume();
+                } else if (audioRef.current.currentTime > 1) {
+                  // Only save progress once we are past the initial seek lock
                   localStorage.setItem(`progress_${id}`, audioRef.current.currentTime);
                 }
               }}
@@ -113,13 +108,12 @@ export default function Player() {
         </div>
 
         <div className="w-full">
-          <h3 className="text-lg font-bold mb-4 text-emerald-400 px-2">Chapters</h3>
           <div className="bg-slate-800 rounded-2xl divide-y divide-slate-700 max-h-80 overflow-y-auto border border-slate-700">
             {book.media?.chapters?.map((c, i) => (
               <button 
                 key={i} 
-                onClick={() => { if(audioRef.current) { audioRef.current.currentTime = c.start; audioRef.current.play(); } }} 
-                className="w-full p-5 hover:bg-slate-700 flex justify-between text-left transition"
+                onClick={() => { if(audioRef.current) { audioRef.current.currentTime = c.start; audioRef.current.play(); seekApplied.current = true; } }} 
+                className="w-full p-5 hover:bg-slate-700 flex justify-between text-left"
               >
                 <span>{c.title || `Chapter ${i + 1}`}</span>
                 <span className="text-gray-500 font-mono text-sm">{new Date(c.start * 1000).toISOString().substr(11, 8)}</span>
