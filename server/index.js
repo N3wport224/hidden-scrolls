@@ -7,7 +7,7 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// CRITICAL: Credentials must be true for session cookies to function
+// CRITICAL: Credentials MUST be true for session cookies to function
 app.use(cors({ 
   origin: true, 
   credentials: true 
@@ -37,7 +37,7 @@ app.all('/api/proxy', async (req, res) => {
         'Authorization': `Bearer ${token}`,
         'Range': req.headers.range || 'bytes=0-',
         'Cookie': req.headers.cookie || '', 
-        // Mirror the browser's identity to satisfy ABS security checks
+        // Mirror the browser's exact identity
         'User-Agent': req.headers['user-agent'],
         'X-Forwarded-For': req.ip
       },
@@ -47,7 +47,7 @@ app.all('/api/proxy', async (req, res) => {
       validateStatus: () => true 
     });
 
-    // Precise logging for monitoring the 404
+    // Logging the EXACT URL for the 404 hunt
     if (response.status >= 400) {
       console.error(`❌ ABS ERROR [${response.status}] for URL: ${targetUrl}`);
     } else {
@@ -68,7 +68,6 @@ app.all('/api/proxy', async (req, res) => {
   }
 });
 
-// Serve the built React frontend
 app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
 

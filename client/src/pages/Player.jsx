@@ -21,10 +21,10 @@ export default function Player() {
         const res = await fetch(getProxyUrl(`/api/items/${id}/play`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          // Tells the browser to save and send the session cookie
+          // MANDATORY: Tells the browser to save/send the session cookie
           credentials: 'include', 
           body: JSON.stringify({ 
-            deviceId: 'hidden-scrolls-pi-v1', // Static ID for session stability
+            deviceId: 'hidden-scrolls-pi-v1', // Static ID for stability
             supportedMimeTypes: ['audio/mpeg'],
             forceDirectPlay: true 
           })
@@ -61,11 +61,11 @@ export default function Player() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center p-6">
-      <div className="w-full max-w-3xl flex justify-between items-center mb-6 z-10">
+      <div className="w-full max-w-3xl flex justify-between items-center mb-6">
         <button onClick={() => navigate('/')} className="text-gray-400 hover:text-white px-4 py-2">← Library</button>
         <button 
           onClick={() => setBluetoothMode(!bluetoothMode)}
-          className={`px-4 py-2 rounded-full font-bold text-sm ${bluetoothMode ? 'bg-emerald-600 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'bg-slate-700'}`}
+          className={`px-4 py-2 rounded-full font-bold text-sm ${bluetoothMode ? 'bg-emerald-600' : 'bg-slate-700'}`}
         >
           {bluetoothMode ? 'Bluetooth Active' : 'Enable Bluetooth Mode'}
         </button>
@@ -87,8 +87,8 @@ export default function Player() {
             <audio 
               ref={audioRef} 
               controls 
-              // Remount the audio element only once the session is authorized
-              key={sessionId || 'waiting'} 
+              // Force the audio element to reload ONLY when session is authorized
+              key={sessionId || 'loading'} 
               className="w-full h-10 invert-[.9]"
               onLoadedMetadata={handleLoadedMetadata}
               onTimeUpdate={() => localStorage.setItem(`progress_${id}`, audioRef.current.currentTime)}
@@ -101,9 +101,9 @@ export default function Player() {
 
         <div className="w-full">
           <h3 className="text-xl font-bold mb-4 text-emerald-400">Chapters</h3>
-          <div className="bg-slate-800 rounded-xl divide-y divide-slate-700 max-h-64 overflow-y-auto shadow-lg">
+          <div className="bg-slate-800 rounded-xl divide-y divide-slate-700 max-h-64 overflow-y-auto">
             {chapters.map((c, i) => (
-              <button key={i} onClick={() => {if(audioRef.current){audioRef.current.currentTime = c.start; audioRef.current.play();}}} className="w-full text-left p-4 hover:bg-slate-700 flex justify-between transition">
+              <button key={i} onClick={() => {if(audioRef.current){audioRef.current.currentTime = c.start; audioRef.current.play();}}} className="w-full text-left p-4 hover:bg-slate-700 flex justify-between">
                 <span className="text-gray-300 font-medium">{c.title || `Chapter ${i + 1}`}</span>
                 <span className="text-gray-500 text-sm">{new Date(c.start * 1000).toISOString().substr(11, 8)}</span>
               </button>
