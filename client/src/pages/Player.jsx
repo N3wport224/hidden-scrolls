@@ -14,7 +14,7 @@ export default function Player() {
   const silentRef = useRef(null); 
   
   useEffect(() => {
-    // Restore full library data fetch
+    // Restore full metadata fetch for chapters
     fetchBookDetails(id).then(setBook);
     
     // STEP 1: INITIALIZE CLEAN PLAYBACK SESSION
@@ -23,18 +23,16 @@ export default function Player() {
         const res = await fetch(getProxyUrl(`/api/items/${id}/play`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          // CRITICAL: Ignore existing admin cookies to prevent 404 conflicts
+          // CRITICAL: Ignore existing admin cookies to prevent conflicts
           credentials: 'omit', 
           body: JSON.stringify({ 
-            deviceId: 'hidden-scrolls-car-pi-final-v1', 
+            deviceId: 'hidden-scrolls-car-pi-final-v2', 
             supportedMimeTypes: ['audio/mpeg'],
             forceDirectPlay: true 
           })
         });
         const data = await res.json();
-        if (data.id) {
-          setSessionId(data.id); 
-        }
+        if (data.id) setSessionId(data.id); 
       } catch (err) {
         console.error("❌ Session handshake failed:", err);
       }
@@ -48,14 +46,10 @@ export default function Player() {
     }
   }, [bluetoothMode]);
 
-  const skip = (seconds) => {
-    if (audioRef.current) audioRef.current.currentTime += seconds;
-  };
-
   if (!book) return <div className="p-10 text-center text-white">Loading...</div>;
 
   const metadata = book.media?.metadata || {};
-  const chapters = book.media?.chapters || []; // Restore chapter access
+  const chapters = book.media?.chapters || []; // Chapter restoration
   const coverUrl = getProxyUrl(`/api/items/${id}/cover`);
   const audioUrl = sessionId ? getProxyUrl(`/api/items/${id}/stream/${sessionId}`) : null;
 
@@ -84,36 +78,29 @@ export default function Player() {
         </div>
 
         <div className="w-full bg-slate-800 p-6 rounded-xl shadow-lg mb-8 text-center">
-            <div className="flex justify-center gap-8 mb-6">
-              <button onClick={() => skip(-15)} className="rounded-full bg-slate-700 w-16 h-16 text-lg">↺ 15</button>
-              <button onClick={() => skip(30)} className="rounded-full bg-slate-700 w-16 h-16 text-lg">30 ↻</button>
-            </div>
             <audio 
               ref={audioRef} 
               controls 
-              key={sessionId || 'authorizing'} 
+              key={sessionId || 'loading'} 
               className="w-full h-10 invert-[.9]"
+              onTimeUpdate={() => localStorage.setItem(`progress_${id}`, audioRef.current.currentTime)}
               preload="auto" 
             >
               {audioUrl && <source src={audioUrl} type="audio/mpeg" />}
             </audio>
-            {!sessionId && <p className="text-center text-xs text-yellow-500 mt-2 animate-pulse">Establishing Connection...</p>}
+            {!sessionId && <p className="text-center text-xs text-yellow-500 mt-2 italic animate-pulse">Establishing Connection...</p>}
         </div>
 
-        {/* RE-IMPLEMENTED CHAPTER LIST */}
+        {/* RESTORED CHAPTER LIST */}
         <div className="w-full">
           <h3 className="text-xl font-bold mb-4 text-emerald-400">Chapters</h3>
           <div className="bg-slate-800 rounded-xl divide-y divide-slate-700 max-h-64 overflow-y-auto">
             {chapters.length > 0 ? chapters.map((c, i) => (
-              <button 
-                key={i} 
-                onClick={() => {if(audioRef.current){audioRef.current.currentTime = c.start; audioRef.current.play();}}} 
-                className="w-full text-left p-4 hover:bg-slate-700 flex justify-between"
-              >
+              <button key={i} onClick={() => {if(audioRef.current){audioRef.current.currentTime = c.start; audioRef.current.play();}}} className="w-full text-left p-4 hover:bg-slate-700 flex justify-between">
                 <span className="text-gray-300 font-medium">{c.title || `Chapter ${i + 1}`}</span>
                 <span className="text-gray-500 text-sm">{new Date(c.start * 1000).toISOString().substr(11, 8)}</span>
               </button>
-            )) : <p className="p-4 text-gray-500 italic">No chapters found for this book.</p>}
+            )) : <p className="p-4 text-gray-500 italic">No chapters found.</p>}
           </div>
         </div>
       </div>
