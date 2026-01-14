@@ -7,7 +7,7 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// CRITICAL: Credentials MUST be true for session cookies to function
+// CRITICAL: credentials: true is required for session cookies
 app.use(cors({ 
   origin: true, 
   credentials: true 
@@ -21,7 +21,7 @@ app.all('/api/proxy', async (req, res) => {
   const token = (process.env.ABS_API_TOKEN || '').trim();
   const baseUrl = process.env.ABS_BASE_URL.replace(/\/$/, '');
   
-  // Clean path to prevent double-subfolder errors
+  // Sanitize path to prevent double-subfolder errors
   let sanitizedPath = originalPath.startsWith('/') ? originalPath.substring(1) : originalPath;
   if (baseUrl.endsWith('/audiobookshelf') && sanitizedPath.startsWith('audiobookshelf/')) {
     sanitizedPath = sanitizedPath.replace('audiobookshelf/', '');
@@ -37,7 +37,7 @@ app.all('/api/proxy', async (req, res) => {
         'Authorization': `Bearer ${token}`,
         'Range': req.headers.range || 'bytes=0-',
         'Cookie': req.headers.cookie || '', 
-        // Mirror the browser's exact identity to satisfy ABS security filters
+        // Mirror the browser's identity for ABS security
         'User-Agent': req.headers['user-agent'],
         'X-Forwarded-For': req.ip
       },
@@ -47,7 +47,6 @@ app.all('/api/proxy', async (req, res) => {
       validateStatus: () => true 
     });
 
-    // Logging the EXACT URL for the final 404 hunt
     if (response.status >= 400) {
       console.error(`❌ ABS ERROR [${response.status}] for URL: ${targetUrl}`);
     } else {
