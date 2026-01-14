@@ -7,11 +7,7 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// CRITICAL: Credentials MUST be true for session cookies to function
-app.use(cors({ 
-  origin: true, 
-  credentials: true 
-}));
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
 app.all('/api/proxy', async (req, res) => {
@@ -20,14 +16,7 @@ app.all('/api/proxy', async (req, res) => {
 
   const token = (process.env.ABS_API_TOKEN || '').trim();
   const baseUrl = process.env.ABS_BASE_URL.replace(/\/$/, '');
-  
-  // Clean path to prevent double-subfolder errors
-  let sanitizedPath = originalPath.startsWith('/') ? originalPath.substring(1) : originalPath;
-  if (baseUrl.endsWith('/audiobookshelf') && sanitizedPath.startsWith('audiobookshelf/')) {
-    sanitizedPath = sanitizedPath.replace('audiobookshelf/', '');
-  }
-
-  const targetUrl = `${baseUrl}/${sanitizedPath}`;
+  const targetUrl = `${baseUrl}/${originalPath.replace(/^\//, '')}`;
   
   try {
     const response = await axios({
@@ -36,27 +25,24 @@ app.all('/api/proxy', async (req, res) => {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Range': req.headers.range || 'bytes=0-',
-        'Cookie': req.headers.cookie || '', // Forward browser cookies back to ABS
-        'User-Agent': req.headers['user-agent'], // Mirror browser identity
-        'X-Forwarded-For': req.ip
+        // Only forward cookies if specifically sent by our custom player
+        'Cookie': req.headers.cookie || '', 
+        // CRITICAL: Mirror the browser identity to satisfy ABS security
+        'User-Agent': req.headers['user-agent']
       },
       data: req.body,
       responseType: 'stream',
-      maxRedirects: 5,
       validateStatus: () => true 
     });
 
     if (response.status >= 400) {
-      console.error(`❌ ABS ERROR [${response.status}] for URL: ${targetUrl}`);
+      console.error(`❌ ABS ERROR [${response.status}] for: ${originalPath}`);
     } else {
-      console.log(`✅ ABS SUCCESS [${response.status}]: ${sanitizedPath}`);
+      console.log(`✅ ABS SUCCESS [${response.status}]: ${originalPath}`);
     }
 
-    // Forward ALL critical streaming and session headers
-    const forwardHeaders = ['content-type', 'content-range', 'accept-ranges', 'content-length', 'set-cookie', 'cache-control'];
-    forwardHeaders.forEach(h => { 
-      if (response.headers[h]) res.setHeader(h, response.headers[h]); 
-    });
+    const forwardHeaders = ['content-type', 'content-range', 'accept-ranges', 'content-length', 'set-cookie'];
+    forwardHeaders.forEach(h => { if (response.headers[h]) res.setHeader(h, response.headers[h]); });
 
     res.status(response.status);
     response.data.pipe(res);
@@ -69,4 +55,4 @@ app.all('/api/proxy', async (req, res) => {
 app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
 
-app.listen(PORT, () => console.log(`🚀 Final Transparent Proxy active on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Permanent Proxy active on port ${PORT}`));
