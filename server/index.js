@@ -10,7 +10,6 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// --- UNIVERSAL HANDSHAKE PROXY ---
 app.all('/api/proxy', async (req, res) => {
   const originalPath = req.query.path;
   if (!originalPath) return res.status(400).send("Missing path");
@@ -25,16 +24,15 @@ app.all('/api/proxy', async (req, res) => {
       url: targetUrl,
       headers: {
         'Authorization': `Bearer ${token}`,
-        'Range': req.headers.range || 'bytes=0-', // Force range for audio streaming
+        'Range': req.headers.range || 'bytes=0-',
         'Content-Type': 'application/json'
       },
       data: req.body, 
       responseType: 'stream',
-      maxRedirects: 5, // Vital for session-based streaming
+      maxRedirects: 5,
       validateStatus: () => true 
     });
 
-    // Logging for Pi Terminal Movement
     if (response.status >= 400) {
       console.error(`❌ ABS ERROR [${response.status}]: ${originalPath}`);
     } else {
