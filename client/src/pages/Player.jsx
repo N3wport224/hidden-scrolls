@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchBookDetails, getProxyUrl } from '../lib/api';
 
-// Silent MP3 to keep Bluetooth active during pauses
+// Silent MP3 to keep Bluetooth connections alive
 const SILENT_AUDIO_SRC = "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD//////////////////////////////////////////////////////////////////wAAAAAATGF2YzU4LjU0AAAAAAAAAAAAAAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD//////////////////////////////////////////////////////////////////wAAAAAATGF2YzU4LjU0AAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
 export default function Player() {
@@ -23,7 +23,7 @@ export default function Player() {
         const res = await fetch(getProxyUrl(`/api/items/${id}/play`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          // CRITICAL: Tells browser to save the session cookie from the proxy
+          // CRITICAL: Save the session cookie from the proxy
           credentials: 'include', 
           body: JSON.stringify({ 
             deviceId: 'hidden-scrolls-pi', 
@@ -33,9 +33,9 @@ export default function Player() {
         });
         const data = await res.json();
         
-        // Capture the session ID to build the stream path
+        // Audiobookshelf returns the session ID required for the /stream endpoint
         if (data.id) {
-          console.log("✅ Playback session initialized:", data.id);
+          console.log("✅ Session ID Captured:", data.id);
           setSessionId(data.id); 
         }
       } catch (err) {
@@ -45,7 +45,7 @@ export default function Player() {
     initSession();
   }, [id]);
 
-  // Bluetooth Keep-Alive Logic
+  // Bluetooth Keep-Alive Toggle
   useEffect(() => {
     if (silentRef.current) {
       if (bluetoothMode) {
@@ -56,6 +56,7 @@ export default function Player() {
     }
   }, [bluetoothMode]);
 
+  // Progress Management
   const handleLoadedMetadata = () => {
     const savedTime = localStorage.getItem(`progress_${id}`);
     if (savedTime && audioRef.current) {
@@ -67,14 +68,13 @@ export default function Player() {
     if (audioRef.current) audioRef.current.currentTime += seconds;
   };
 
-  if (!book) return <div className="p-10 text-center text-white font-bold">Loading Book...</div>;
+  if (!book) return <div className="p-10 text-center text-white">Loading...</div>;
 
   const metadata = book.media?.metadata || {};
   const chapters = book.media?.chapters || [];
   const coverUrl = getProxyUrl(`/api/items/${id}/cover`);
   
   // STEP 2: BUILD DYNAMIC STREAM URL
-  // This URL format is required by ABS once a session is started
   const audioUrl = sessionId ? getProxyUrl(`/api/items/${id}/stream/${sessionId}`) : null;
 
   return (
@@ -95,21 +95,21 @@ export default function Player() {
 
       <audio ref={silentRef} src={SILENT_AUDIO_SRC} loop />
 
-      {/* PLAYER CONTENT */}
+      {/* MAIN PLAYER UI */}
       <div className="w-full max-w-3xl flex flex-col items-center">
         
-        {/* Artwork */}
+        {/* Cover Art */}
         <div className="aspect-[2/3] w-48 md:w-64 bg-slate-800 rounded-lg shadow-2xl overflow-hidden mb-6">
           <img src={coverUrl} alt="Cover" className="w-full h-full object-cover" />
         </div>
 
-        {/* Book Information */}
+        {/* Title and Author */}
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold mb-2">{metadata.title}</h1>
           <p className="text-gray-400 text-lg">{metadata.authorName}</p>
         </div>
 
-        {/* AUDIO PLAYER ENGINE */}
+        {/* PLAYER CONTROLS */}
         <div className="w-full bg-slate-800 p-6 rounded-xl shadow-lg mb-8">
             <div className="flex justify-center gap-8 mb-6">
               <button onClick={() => skip(-15)} className="rounded-full bg-slate-700 hover:bg-slate-600 flex items-center justify-center w-16 h-16 text-lg transition">
@@ -123,7 +123,7 @@ export default function Player() {
             <audio 
               ref={audioRef} 
               controls 
-              key={sessionId} // Forces the browser to reload the audio once the session is ready
+              key={sessionId} // Forces the browser to reload the audio element once the session is ready
               className="w-full h-10 invert-[.9]"
               onLoadedMetadata={handleLoadedMetadata}
               onTimeUpdate={() => localStorage.setItem(`progress_${id}`, audioRef.current.currentTime)}
@@ -134,7 +134,7 @@ export default function Player() {
             {!sessionId && <p className="text-center text-xs text-yellow-500 mt-2 italic animate-pulse">Initializing Secure Handshake...</p>}
         </div>
 
-        {/* CHAPTER NAVIGATION */}
+        {/* CHAPTERS */}
         <div className="w-full">
           <h3 className="text-xl font-bold mb-4 text-emerald-400">Chapters</h3>
           <div className="bg-slate-800 rounded-xl overflow-hidden shadow-lg divide-y divide-slate-700 max-h-64 overflow-y-auto">
