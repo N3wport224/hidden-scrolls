@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchBookDetails, getProxyUrl } from '../lib/api';
 
+// Silent MP3 to maintain Bluetooth connection in the car
 const SILENT_AUDIO_SRC = "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD//////////////////////////////////////////////////////////////////wAAAAAATGF2YzU4LjU0AAAAAAAAAAAAAAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD//////////////////////////////////////////////////////////////////wAAAAAATGF2YzU4LjU0AAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
 export default function Player() {
@@ -21,78 +22,122 @@ export default function Player() {
         const res = await fetch(getProxyUrl(`/api/items/${id}/play`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'omit', // Prevents cookie-based 404s
+          credentials: 'omit', // Prevents security conflicts with other ABS sessions
           body: JSON.stringify({ 
-            deviceId: 'car-player-mobile-v1', 
+            deviceId: 'car-player-pi-final', 
             supportedMimeTypes: ['audio/mpeg'],
             forceDirectPlay: true 
           })
         });
         const data = await res.json();
         if (data.id) setSessionId(data.id); 
-      } catch (err) { console.error("❌ Session failed:", err); }
+      } catch (err) { console.error("❌ Session handshake failed:", err); }
     };
     initSession();
   }, [id]);
 
+  // Bluetooth Keep-Alive Logic
   useEffect(() => {
     if (silentRef.current) {
       bluetoothMode ? silentRef.current.play().catch(() => {}) : silentRef.current.pause();
     }
   }, [bluetoothMode]);
 
-  if (!book) return <div className="p-10 text-center text-white">Loading...</div>;
+  // RESUME LOGIC: Automatically seeks to last saved position when metadata loads
+  const handleLoadedMetadata = () => {
+    const savedTime = localStorage.getItem(`progress_${id}`);
+    if (savedTime && audioRef.current) {
+      console.log(`🕒 Resuming at: ${savedTime}s`);
+      audioRef.current.currentTime = parseFloat(savedTime);
+      
+      // Attempt to autoplay on mobile after seeking
+      audioRef.current.play().catch(e => console.log("Autoplay blocked, waiting for user click."));
+    }
+  };
+
+  const skip = (seconds) => {
+    if (audioRef.current) audioRef.current.currentTime += seconds;
+  };
+
+  if (!book) return <div className="p-10 text-center text-white">Loading Metadata...</div>;
 
   const metadata = book.media?.metadata || {};
   const chapters = book.media?.chapters || [];
   const coverUrl = getProxyUrl(`/api/items/${id}/cover`);
+  
+  // Use the session track path proven working in SSH logs
   const audioUrl = sessionId ? getProxyUrl(`/public/session/${sessionId}/track/1`) : null;
 
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center p-6">
-      <div className="w-full max-w-3xl flex justify-between items-center mb-6">
-        <button onClick={() => navigate('/')} className="text-gray-400 px-4 py-2">← Library</button>
+      
+      {/* Header Controls */}
+      <div className="w-full max-w-3xl flex justify-between items-center mb-6 z-10">
+        <button onClick={() => navigate('/')} className="text-gray-400 hover:text-white px-4 py-2 font-bold">← Library</button>
         <button 
           onClick={() => setBluetoothMode(!bluetoothMode)}
-          className={`px-4 py-2 rounded-full text-sm ${bluetoothMode ? 'bg-emerald-600' : 'bg-slate-700'}`}
+          className={`px-4 py-2 rounded-full font-bold text-sm transition-all ${bluetoothMode ? 'bg-emerald-600 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'bg-slate-700'}`}
         >
-          {bluetoothMode ? 'Bluetooth Active' : 'Enable Bluetooth'}
+          {bluetoothMode ? 'Bluetooth Active' : 'Enable Bluetooth Mode'}
         </button>
       </div>
 
       <audio ref={silentRef} src={SILENT_AUDIO_SRC} loop />
 
-      <div className="aspect-[2/3] w-48 md:w-64 bg-slate-800 rounded-lg shadow-2xl mb-6 overflow-hidden">
-        <img src={coverUrl} alt="Cover" className="w-full h-full object-cover" />
-      </div>
+      <div className="w-full max-w-3xl flex flex-col items-center">
+        {/* Cover Art */}
+        <div className="aspect-[2/3] w-48 md:w-64 bg-slate-800 rounded-lg shadow-2xl mb-6 overflow-hidden border border-slate-700">
+          <img src={coverUrl} alt="Cover" className="w-full h-full object-cover" />
+        </div>
 
-      <div className="w-full max-w-3xl bg-slate-800 p-6 rounded-xl shadow-lg mb-8">
-          <audio 
-            ref={audioRef} 
-            controls 
-            key={sessionId || 'loading'} 
-            className="w-full h-10 invert-[.9]"
-            preload="auto" 
-            playsInline // Required for mobile browsers
-          >
-            {audioUrl && <source src={audioUrl} type="audio/mpeg" />}
-          </audio>
-          {!sessionId && <p className="text-center text-xs text-yellow-500 mt-2 animate-pulse">Initializing...</p>}
-      </div>
+        {/* Book Info */}
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-bold mb-2">{metadata.title}</h1>
+          <p className="text-gray-400 text-lg italic">{metadata.authorName}</p>
+        </div>
 
-      <div className="w-full max-w-3xl">
-        <h3 className="text-xl font-bold mb-4 text-emerald-400">Chapters</h3>
-        <div className="bg-slate-800 rounded-xl divide-y divide-slate-700 max-h-64 overflow-y-auto">
-          {chapters.map((c, i) => (
-            <button 
-              key={i} 
-              onClick={() => { if(audioRef.current) { audioRef.current.currentTime = c.start; audioRef.current.play(); } }} 
-              className="w-full p-4 hover:bg-slate-700 flex justify-between text-left"
+        {/* AUDIO PLAYER ENGINE */}
+        <div className="w-full bg-slate-800 p-6 rounded-xl shadow-lg mb-8 border border-slate-700">
+            <div className="flex justify-center gap-8 mb-6">
+              <button onClick={() => skip(-15)} className="rounded-full bg-slate-700 hover:bg-slate-600 w-16 h-16 text-lg transition">↺ 15</button>
+              <button onClick={() => skip(30)} className="rounded-full bg-slate-700 hover:bg-slate-600 w-16 h-16 text-lg transition">30 ↻</button>
+            </div>
+
+            <audio 
+              ref={audioRef} 
+              controls 
+              key={sessionId || 'loading'} 
+              className="w-full h-10 invert-[.9]"
+              onLoadedMetadata={handleLoadedMetadata}
+              // SAVE PROGRESS: Updates localStorage every time the time changes
+              onTimeUpdate={() => {
+                  if (audioRef.current) {
+                      localStorage.setItem(`progress_${id}`, audioRef.current.currentTime);
+                  }
+              }}
+              preload="auto" 
+              playsInline // Crucial for iOS/Mobile loading
             >
-              <span>{c.title || `Chapter ${i + 1}`}</span>
-              <span className="text-gray-500 text-sm">{new Date(c.start * 1000).toISOString().substr(11, 8)}</span>
-            </button>
-          ))}
+              {audioUrl && <source src={audioUrl} type="audio/mpeg" />}
+            </audio>
+            {!sessionId && <p className="text-center text-xs text-yellow-500 mt-2 italic animate-pulse">Initializing Secure Handshake...</p>}
+        </div>
+
+        {/* CHAPTER LIST */}
+        <div className="w-full">
+          <h3 className="text-xl font-bold mb-4 text-emerald-400">Chapters</h3>
+          <div className="bg-slate-800 rounded-xl divide-y divide-slate-700 max-h-80 overflow-y-auto border border-slate-700 shadow-inner">
+            {chapters.map((c, i) => (
+              <button 
+                key={i} 
+                onClick={() => { if(audioRef.current) { audioRef.current.currentTime = c.start; audioRef.current.play(); } }} 
+                className="w-full p-4 hover:bg-slate-700 flex justify-between text-left transition"
+              >
+                <span className="text-gray-200 font-medium">{c.title || `Chapter ${i + 1}`}</span>
+                <span className="text-gray-500 text-sm font-mono">{new Date(c.start * 1000).toISOString().substr(11, 8)}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>
