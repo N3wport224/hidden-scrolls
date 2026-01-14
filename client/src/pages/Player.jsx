@@ -10,7 +10,7 @@ export default function Player() {
   const [book, setBook] = useState(null);
   const [bluetoothMode, setBluetoothMode] = useState(false);
   const [sessionId, setSessionId] = useState(null); 
-  const [sleepTimer, setSleepTimer] = useState(null);
+  const [sleepTimer, setSleepTimer] = useState(null); // Minutes remaining
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const audioRef = useRef(null);
@@ -25,7 +25,7 @@ export default function Player() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'omit', 
-          body: JSON.stringify({ deviceId: 'car-player-pro-final', supportedMimeTypes: ['audio/mpeg', 'audio/mp4'], forceDirectPlay: true })
+          body: JSON.stringify({ deviceId: 'car-player-pro-final-v3', supportedMimeTypes: ['audio/mpeg', 'audio/mp4'], forceDirectPlay: true })
         });
         const data = await res.json();
         if (data.id) setSessionId(data.id); 
@@ -34,6 +34,7 @@ export default function Player() {
     initSession();
   }, [id]);
 
+  // NEW: Multi-stage Sleep Timer Logic
   useEffect(() => {
     if (sleepTimer) {
       const timer = setTimeout(() => {
@@ -53,6 +54,14 @@ export default function Player() {
   const formatTime = (seconds) => {
     if (isNaN(seconds)) return "0:00:00";
     return new Date(seconds * 1000).toISOString().substr(11, 8);
+  };
+
+  // Helper to cycle through sleep options
+  const cycleSleepTimer = () => {
+    const options = [null, 15, 30, 60, 120];
+    const currentIndex = options.indexOf(sleepTimer);
+    const nextIndex = (currentIndex + 1) % options.length;
+    setSleepTimer(options[nextIndex]);
   };
 
   const handlePlayUnlock = () => {
@@ -103,7 +112,6 @@ export default function Player() {
         {/* Control Card */}
         <div className="w-full bg-slate-800/40 backdrop-blur-md p-8 rounded-[40px] shadow-xl mb-8 border border-white/5">
             
-            {/* Playback Controls */}
             <div className="flex justify-between items-center mb-8">
                 <button 
                   onClick={() => {if(audioRef.current) audioRef.current.currentTime -= 15}} 
@@ -112,15 +120,16 @@ export default function Player() {
                   <span className="text-2xl text-cyan-400">↺</span>
                 </button>
 
+                {/* Updated Sleep Timer Button */}
                 <button 
-                    onClick={() => setSleepTimer(sleepTimer ? null : 30)}
+                    onClick={cycleSleepTimer}
                     className="flex flex-col items-center gap-1"
                 >
-                    <div className={`w-12 h-12 flex items-center justify-center rounded-full transition-all ${sleepTimer ? 'bg-orange-500' : 'bg-slate-700/50'}`}>
+                    <div className={`w-12 h-12 flex items-center justify-center rounded-full transition-all ${sleepTimer ? 'bg-orange-500 shadow-[0_0_20px_rgba(249,115,22,0.4)]' : 'bg-slate-700/50'}`}>
                         <span className="text-lg">⏲</span>
                     </div>
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
-                      {sleepTimer ? `${sleepTimer}m` : 'Sleep'}
+                      {sleepTimer ? (sleepTimer >= 60 ? `${sleepTimer/60}h` : `${sleepTimer}m`) : 'Sleep'}
                     </span>
                 </button>
 
@@ -132,7 +141,6 @@ export default function Player() {
                 </button>
             </div>
 
-            {/* Timestamps Row - RESTORED VISUALS */}
             <div className="flex justify-between px-2 mb-2 text-[12px] font-mono text-slate-400">
                 <span>{formatTime(currentTime)}</span>
                 <span>-{formatTime(duration - currentTime)}</span>
@@ -148,9 +156,7 @@ export default function Player() {
               onTimeUpdate={(e) => {
                 const audio = audioRef.current;
                 if (!audio) return;
-                
                 setCurrentTime(audio.currentTime);
-                
                 if (seekApplied.current && audio.currentTime > 1) {
                   localStorage.setItem(`progress_${id}`, audio.currentTime);
                 }
@@ -162,7 +168,7 @@ export default function Player() {
             </audio>
         </div>
 
-        {/* Chapters */}
+        {/* Chapters Section */}
         <div className="w-full max-w-md">
           <div className="bg-slate-800/30 rounded-[30px] divide-y divide-white/5 max-h-52 overflow-y-auto border border-white/5">
             {book.media?.chapters?.map((c, i) => (
