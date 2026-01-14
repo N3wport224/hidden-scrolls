@@ -8,7 +8,10 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Enable CORS with credentials for cookie support
-app.use(cors({ origin: true, credentials: true }));
+app.use(cors({ 
+  origin: true, 
+  credentials: true 
+}));
 app.use(express.json());
 
 app.all('/api/proxy', async (req, res) => {
@@ -41,7 +44,7 @@ app.all('/api/proxy', async (req, res) => {
       validateStatus: () => true 
     });
 
-    // Logging the EXACT URL to verify pathing
+    // Detailed diagnostic logging
     if (response.status >= 400) {
       console.error(`❌ ABS ERROR [${response.status}] for: ${targetUrl}`);
     } else {

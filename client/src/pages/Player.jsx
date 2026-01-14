@@ -82,7 +82,7 @@ export default function Player() {
           <p className="text-gray-400 text-lg">{metadata.authorName}</p>
         </div>
 
-        <div className="w-full bg-slate-800 p-6 rounded-xl shadow-lg mb-8">
+        <div className="w-full bg-slate-800 p-6 rounded-xl shadow-lg mb-8 text-center">
             <audio 
               ref={audioRef} 
               controls 
