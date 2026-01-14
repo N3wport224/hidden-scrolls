@@ -16,13 +16,13 @@ export default function Player() {
   useEffect(() => {
     fetchBookDetails(id).then(setBook);
     
+    // STEP 1: INITIALIZE SESSION HANDSHAKE
     const initSession = async () => {
       try {
         const res = await fetch(getProxyUrl(`/api/items/${id}/play`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          // CRITICAL: Tells browser to save the session cookie
-          credentials: 'include', 
+          credentials: 'include', // CRITICAL: Save session cookie
           body: JSON.stringify({ 
             deviceId: 'hidden-scrolls-pi', 
             supportedMimeTypes: ['audio/mpeg'],
@@ -52,11 +52,17 @@ export default function Player() {
     if (savedTime && audioRef.current) audioRef.current.currentTime = parseFloat(savedTime);
   };
 
+  const skip = (seconds) => {
+    if (audioRef.current) audioRef.current.currentTime += seconds;
+  };
+
   if (!book) return <div className="p-10 text-center text-white">Loading...</div>;
 
   const metadata = book.media?.metadata || {};
   const chapters = book.media?.chapters || [];
   const coverUrl = getProxyUrl(`/api/items/${id}/cover`);
+  
+  // STEP 2: BUILD DYNAMIC STREAM URL
   const audioUrl = sessionId ? getProxyUrl(`/api/items/${id}/stream/${sessionId}`) : null;
 
   return (
@@ -84,6 +90,11 @@ export default function Player() {
         </div>
 
         <div className="w-full bg-slate-800 p-6 rounded-xl shadow-lg mb-8 text-center">
+            <div className="flex justify-center gap-8 mb-6">
+              <button onClick={() => skip(-15)} className="rounded-full bg-slate-700 w-16 h-16 text-lg">↺ 15</button>
+              <button onClick={() => skip(30)} className="rounded-full bg-slate-700 w-16 h-16 text-lg">30 ↻</button>
+            </div>
+
             <audio 
               ref={audioRef} 
               controls 
@@ -102,7 +113,7 @@ export default function Player() {
           <h3 className="text-xl font-bold mb-4 text-emerald-400">Chapters</h3>
           <div className="bg-slate-800 rounded-xl divide-y divide-slate-700 max-h-64 overflow-y-auto shadow-lg">
             {chapters.map((c, i) => (
-              <button key={i} onClick={() => {audioRef.current.currentTime = c.start; audioRef.current.play();}} className="w-full text-left p-4 hover:bg-slate-700 flex justify-between transition">
+              <button key={i} onClick={() => {if(audioRef.current){audioRef.current.currentTime = c.start; audioRef.current.play();}}} className="w-full text-left p-4 hover:bg-slate-700 flex justify-between transition">
                 <span className="text-gray-300 font-medium">{c.title || `Chapter ${i + 1}`}</span>
                 <span className="text-gray-500 text-sm">{new Date(c.start * 1000).toISOString().substr(11, 8)}</span>
               </button>
