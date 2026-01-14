@@ -16,21 +16,21 @@ export default function Player() {
   useEffect(() => {
     fetchBookDetails(id).then(setBook);
     
-    // STEP 1: INITIALIZE PLAYBACK HANDSHAKE
     const initSession = async () => {
       try {
         const res = await fetch(getProxyUrl(`/api/items/${id}/play`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include', // Tells browser to save the session cookie
           body: JSON.stringify({ 
-            deviceId: 'hidden-scrolls-pi-' + Math.random().toString(36).substr(2, 5), 
+            deviceId: 'hidden-scrolls-pi', 
             supportedMimeTypes: ['audio/mpeg'],
             forceDirectPlay: true 
           })
         });
         const data = await res.json();
         if (data.id) {
-          console.log("✅ Session ID Active:", data.id);
+          console.log("✅ Session ID Captured:", data.id);
           setSessionId(data.id); 
         }
       } catch (err) {
@@ -61,14 +61,17 @@ export default function Player() {
   const chapters = book.media?.chapters || [];
   const coverUrl = getProxyUrl(`/api/items/${id}/cover`);
   
-  // STEP 2: BUILD DYNAMIC STREAM URL
+  // Construct URL using the Session ID provided by the handshake
   const audioUrl = sessionId ? getProxyUrl(`/api/items/${id}/stream/${sessionId}`) : null;
 
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center p-6">
-      <div className="w-full max-w-3xl flex justify-between items-center mb-6">
-        <button onClick={() => navigate('/')} className="text-gray-400 hover:text-white px-4 py-2">← Library</button>
-        <button onClick={() => setBluetoothMode(!bluetoothMode)} className={`px-4 py-2 rounded-full font-bold text-sm ${bluetoothMode ? 'bg-emerald-600' : 'bg-slate-700'}`}>
+      <div className="w-full max-w-3xl flex justify-between items-center mb-6 z-10">
+        <button onClick={() => navigate('/')} className="text-gray-400 hover:text-white px-4 py-2 text-lg">← Library</button>
+        <button 
+          onClick={() => setBluetoothMode(!bluetoothMode)}
+          className={`px-4 py-2 rounded-full font-bold text-sm ${bluetoothMode ? 'bg-emerald-600 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'bg-slate-700'}`}
+        >
           {bluetoothMode ? 'Bluetooth Active' : 'Enable Bluetooth Mode'}
         </button>
       </div>
@@ -87,14 +90,14 @@ export default function Player() {
 
         <div className="w-full bg-slate-800 p-6 rounded-xl shadow-lg mb-8">
             <div className="flex justify-center gap-8 mb-6">
-              <button onClick={() => skip(-15)} className="rounded-full bg-slate-700 w-16 h-16 text-lg transition">↺ 15</button>
-              <button onClick={() => skip(30)} className="rounded-full bg-slate-700 w-16 h-16 text-lg transition">30 ↻</button>
+              <button onClick={() => skip(-15)} className="rounded-full bg-slate-700 w-16 h-16 text-lg">↺ 15</button>
+              <button onClick={() => skip(30)} className="rounded-full bg-slate-700 w-16 h-16 text-lg">30 ↻</button>
             </div>
 
             <audio 
               ref={audioRef} 
               controls 
-              key={sessionId} 
+              key={sessionId} // Forces reload once session cookie is set
               className="w-full h-10 invert-[.9]"
               onLoadedMetadata={handleLoadedMetadata}
               onTimeUpdate={() => localStorage.setItem(`progress_${id}`, audioRef.current.currentTime)}
@@ -107,10 +110,10 @@ export default function Player() {
 
         <div className="w-full">
           <h3 className="text-xl font-bold mb-4 text-emerald-400">Chapters</h3>
-          <div className="bg-slate-800 rounded-xl divide-y divide-slate-700 max-h-64 overflow-y-auto">
+          <div className="bg-slate-800 rounded-xl divide-y divide-slate-700 max-h-64 overflow-y-auto shadow-lg">
             {chapters.map((c, i) => (
-              <button key={i} onClick={() => {audioRef.current.currentTime = c.start; audioRef.current.play();}} className="w-full text-left p-4 hover:bg-slate-700 flex justify-between">
-                <span className="text-gray-300">{c.title || `Chapter ${i + 1}`}</span>
+              <button key={i} onClick={() => {audioRef.current.currentTime = c.start; audioRef.current.play();}} className="w-full text-left p-4 hover:bg-slate-700 flex justify-between transition">
+                <span className="text-gray-300 font-medium">{c.title || `Chapter ${i + 1}`}</span>
                 <span className="text-gray-500 text-sm">{new Date(c.start * 1000).toISOString().substr(11, 8)}</span>
               </button>
             ))}

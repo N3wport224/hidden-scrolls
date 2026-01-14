@@ -7,7 +7,11 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+// Enable CORS with credentials support for session cookies
+app.use(cors({
+  origin: true,
+  credentials: true 
+}));
 app.use(express.json());
 
 app.all('/api/proxy', async (req, res) => {
@@ -17,7 +21,7 @@ app.all('/api/proxy', async (req, res) => {
   const token = (process.env.ABS_API_TOKEN || '').trim();
   const baseUrl = process.env.ABS_BASE_URL.replace(/\/$/, '');
   
-  // Clean the path to prevent double /audiobookshelf/ folders
+  // Sanitize path to prevent double-subfolder errors
   let sanitizedPath = originalPath.startsWith('/') ? originalPath.substring(1) : originalPath;
   if (baseUrl.endsWith('/audiobookshelf') && sanitizedPath.startsWith('audiobookshelf/')) {
     sanitizedPath = sanitizedPath.replace('audiobookshelf/', '');
@@ -32,7 +36,7 @@ app.all('/api/proxy', async (req, res) => {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Range': req.headers.range || 'bytes=0-',
-        'Cookie': req.headers.cookie || '', // Forward cookies to maintain session
+        'Cookie': req.headers.cookie || '', // Forward browser cookies back to ABS
       },
       data: req.body,
       responseType: 'stream',
@@ -40,15 +44,18 @@ app.all('/api/proxy', async (req, res) => {
       validateStatus: () => true 
     });
 
+    // Detailed diagnostic logging
     if (response.status >= 400) {
       console.error(`❌ ABS ERROR [${response.status}] for URL: ${targetUrl}`);
     } else {
       console.log(`✅ ABS SUCCESS [${response.status}]: ${sanitizedPath}`);
     }
 
-    // Forward streaming headers
+    // Forward streaming and session headers
     const forwardHeaders = ['content-type', 'content-range', 'accept-ranges', 'content-length', 'set-cookie'];
-    forwardHeaders.forEach(h => { if (response.headers[h]) res.setHeader(h, response.headers[h]); });
+    forwardHeaders.forEach(h => { 
+      if (response.headers[h]) res.setHeader(h, response.headers[h]); 
+    });
 
     res.status(response.status);
     response.data.pipe(res);
@@ -61,4 +68,4 @@ app.all('/api/proxy', async (req, res) => {
 app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
 
-app.listen(PORT, () => console.log(`🚀 Handshake Proxy running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Handshake Proxy active on port ${PORT}`));
