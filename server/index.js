@@ -7,7 +7,11 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors({ origin: true, credentials: true }));
+// CRITICAL: Credentials MUST be true for session cookies to function
+app.use(cors({ 
+  origin: true, 
+  credentials: true 
+}));
 app.use(express.json());
 
 app.all('/api/proxy', async (req, res) => {
@@ -17,7 +21,7 @@ app.all('/api/proxy', async (req, res) => {
   const token = (process.env.ABS_API_TOKEN || '').trim();
   const baseUrl = process.env.ABS_BASE_URL.replace(/\/$/, '');
   
-  // Sanitize path to handle the subfolder correctly
+  // Clean path to prevent double-subfolder errors
   let sanitizedPath = originalPath.startsWith('/') ? originalPath.substring(1) : originalPath;
   if (baseUrl.endsWith('/audiobookshelf') && sanitizedPath.startsWith('audiobookshelf/')) {
     sanitizedPath = sanitizedPath.replace('audiobookshelf/', '');
@@ -32,9 +36,9 @@ app.all('/api/proxy', async (req, res) => {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Range': req.headers.range || 'bytes=0-',
-        // CRITICAL: We DO NOT forward req.headers.cookie here to prevent 
-        // conflicts with existing ABS web sessions
-        'User-Agent': req.headers['user-agent']
+        'Cookie': req.headers.cookie || '', // Forward browser cookies back to ABS
+        'User-Agent': req.headers['user-agent'], // Mirror browser identity
+        'X-Forwarded-For': req.ip
       },
       data: req.body,
       responseType: 'stream',
@@ -48,8 +52,11 @@ app.all('/api/proxy', async (req, res) => {
       console.log(`✅ ABS SUCCESS [${response.status}]: ${sanitizedPath}`);
     }
 
-    const forwardHeaders = ['content-type', 'content-range', 'accept-ranges', 'content-length'];
-    forwardHeaders.forEach(h => { if (response.headers[h]) res.setHeader(h, response.headers[h]); });
+    // Forward ALL critical streaming and session headers
+    const forwardHeaders = ['content-type', 'content-range', 'accept-ranges', 'content-length', 'set-cookie', 'cache-control'];
+    forwardHeaders.forEach(h => { 
+      if (response.headers[h]) res.setHeader(h, response.headers[h]); 
+    });
 
     res.status(response.status);
     response.data.pipe(res);
@@ -62,4 +69,4 @@ app.all('/api/proxy', async (req, res) => {
 app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
 
-app.listen(PORT, () => console.log(`🚀 Isolated Proxy active on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Final Transparent Proxy active on port ${PORT}`));
