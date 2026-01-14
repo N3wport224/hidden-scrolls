@@ -14,19 +14,18 @@ export default function Player() {
   const silentRef = useRef(null); 
   
   useEffect(() => {
-    // Restore full metadata fetch for chapters
+    // Restore full data fetch to bring back chapters
     fetchBookDetails(id).then(setBook);
     
-    // STEP 1: INITIALIZE CLEAN PLAYBACK SESSION
     const initSession = async () => {
       try {
         const res = await fetch(getProxyUrl(`/api/items/${id}/play`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          // CRITICAL: Ignore existing admin cookies to prevent conflicts
+          // CRITICAL: Ignore existing admin cookies that cause 404 conflicts
           credentials: 'omit', 
           body: JSON.stringify({ 
-            deviceId: 'hidden-scrolls-car-pi-final-v2', 
+            deviceId: 'car-player-isolated-v1', // Strictly unique ID
             supportedMimeTypes: ['audio/mpeg'],
             forceDirectPlay: true 
           })
@@ -49,7 +48,7 @@ export default function Player() {
   if (!book) return <div className="p-10 text-center text-white">Loading...</div>;
 
   const metadata = book.media?.metadata || {};
-  const chapters = book.media?.chapters || []; // Chapter restoration
+  const chapters = book.media?.chapters || []; // Restore chapter parsing
   const coverUrl = getProxyUrl(`/api/items/${id}/cover`);
   const audioUrl = sessionId ? getProxyUrl(`/api/items/${id}/stream/${sessionId}`) : null;
 
@@ -91,16 +90,20 @@ export default function Player() {
             {!sessionId && <p className="text-center text-xs text-yellow-500 mt-2 italic animate-pulse">Establishing Connection...</p>}
         </div>
 
-        {/* RESTORED CHAPTER LIST */}
+        {/* RE-IMPLEMENTED CHAPTER LIST */}
         <div className="w-full">
           <h3 className="text-xl font-bold mb-4 text-emerald-400">Chapters</h3>
           <div className="bg-slate-800 rounded-xl divide-y divide-slate-700 max-h-64 overflow-y-auto">
             {chapters.length > 0 ? chapters.map((c, i) => (
-              <button key={i} onClick={() => {if(audioRef.current){audioRef.current.currentTime = c.start; audioRef.current.play();}}} className="w-full text-left p-4 hover:bg-slate-700 flex justify-between">
+              <button 
+                key={i} 
+                onClick={() => {if(audioRef.current){audioRef.current.currentTime = c.start; audioRef.current.play();}}} 
+                className="w-full text-left p-4 hover:bg-slate-700 flex justify-between"
+              >
                 <span className="text-gray-300 font-medium">{c.title || `Chapter ${i + 1}`}</span>
                 <span className="text-gray-500 text-sm">{new Date(c.start * 1000).toISOString().substr(11, 8)}</span>
               </button>
-            )) : <p className="p-4 text-gray-500 italic">No chapters found.</p>}
+            )) : <p className="p-4 text-gray-500 italic">No chapters available.</p>}
           </div>
         </div>
       </div>
