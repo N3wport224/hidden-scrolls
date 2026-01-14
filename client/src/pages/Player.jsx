@@ -10,6 +10,7 @@ export default function Player() {
   const [book, setBook] = useState(null);
   const [bluetoothMode, setBluetoothMode] = useState(false);
   const [sessionId, setSessionId] = useState(null); 
+  const [isUnlocked, setIsUnlocked] = useState(false); // Mobile unlock state
   const audioRef = useRef(null);
   const silentRef = useRef(null); 
   
@@ -21,7 +22,7 @@ export default function Player() {
         const res = await fetch(getProxyUrl(`/api/items/${id}/play`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'omit', // Crucial to prevent cookie conflicts
+          credentials: 'omit',
           body: JSON.stringify({ 
             deviceId: 'car-player-pi-final', 
             supportedMimeTypes: ['audio/mpeg'],
@@ -37,17 +38,18 @@ export default function Player() {
 
   // Bluetooth Keep-Alive
   useEffect(() => {
-    if (silentRef.current) {
+    if (silentRef.current && isUnlocked) {
       bluetoothMode ? silentRef.current.play().catch(() => {}) : silentRef.current.pause();
     }
-  }, [bluetoothMode]);
+  }, [bluetoothMode, isUnlocked]);
 
-  // RESUME LOGIC: Automatically seeks to last saved position
-  const handleLoadedMetadata = () => {
-    const savedTime = localStorage.getItem(`progress_${id}`);
-    if (savedTime && audioRef.current) {
-      console.log(`🕒 Resuming at: ${savedTime}s`);
-      audioRef.current.currentTime = parseFloat(savedTime);
+  // MOBILE UNLOCK: This function MUST be triggered by a click to let the phone load audio
+  const unlockAndPlay = () => {
+    if (audioRef.current) {
+      setIsUnlocked(true);
+      const savedTime = localStorage.getItem(`progress_${id}`);
+      if (savedTime) audioRef.current.currentTime = parseFloat(savedTime);
+      audioRef.current.play().catch(e => console.log("Playback start pending..."));
     }
   };
 
@@ -60,15 +62,26 @@ export default function Player() {
   const metadata = book.media?.metadata || {};
   const chapters = book.media?.chapters || [];
   const coverUrl = getProxyUrl(`/api/items/${id}/cover`);
-  
-  // Use the session track path proven working in SSH logs
   const audioUrl = sessionId ? getProxyUrl(`/public/session/${sessionId}/track/1`) : null;
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center p-6">
+    <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center p-6 relative">
       
+      {/* MOBILE OVERLAY: Disappears once the user taps to start audio */}
+      {!isUnlocked && sessionId && (
+        <div className="absolute inset-0 z-50 bg-slate-900/90 flex flex-col items-center justify-center p-6 text-center">
+          <button 
+            onClick={unlockAndPlay}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-6 px-12 rounded-full text-2xl shadow-2xl animate-bounce"
+          >
+            TAP TO PLAY
+          </button>
+          <p className="mt-4 text-gray-400">Mobile browsers require a tap to start audio.</p>
+        </div>
+      )}
+
       <div className="w-full max-w-3xl flex justify-between items-center mb-6">
-        <button onClick={() => navigate('/')} className="text-gray-400 px-4 py-2 font-bold">← Library</button>
+        <button onClick={() => navigate('/')} className="text-gray-400 font-bold px-4 py-2">← Library</button>
         <button 
           onClick={() => setBluetoothMode(!bluetoothMode)}
           className={`px-4 py-2 rounded-full font-bold text-sm ${bluetoothMode ? 'bg-emerald-600' : 'bg-slate-700'}`}
@@ -100,19 +113,14 @@ export default function Player() {
               controls 
               key={sessionId || 'loading'} 
               className="w-full h-10 invert-[.9]"
-              onLoadedMetadata={handleLoadedMetadata}
-              // SAVE PROGRESS: Updates localStorage as you listen
               onTimeUpdate={() => {
-                  if (audioRef.current) {
-                      localStorage.setItem(`progress_${id}`, audioRef.current.currentTime);
-                  }
+                  if (audioRef.current) localStorage.setItem(`progress_${id}`, audioRef.current.currentTime);
               }}
               preload="auto" 
-              playsInline // Required for mobile browsers to load media
+              playsInline 
             >
               {audioUrl && <source src={audioUrl} type="audio/mpeg" />}
             </audio>
-            {!sessionId && <p className="text-center text-xs text-yellow-500 mt-2 italic animate-pulse">Initializing Session...</p>}
         </div>
 
         <div className="w-full">
@@ -121,7 +129,7 @@ export default function Player() {
             {chapters.map((c, i) => (
               <button 
                 key={i} 
-                onClick={() => { if(audioRef.current) { audioRef.current.currentTime = c.start; audioRef.current.play(); } }} 
+                onClick={() => { if(audioRef.current) { audioRef.current.currentTime = c.start; audioRef.current.play(); setIsUnlocked(true); } }} 
                 className="w-full p-4 hover:bg-slate-700 flex justify-between text-left"
               >
                 <span className="text-gray-200 font-medium">{c.title || `Chapter ${i + 1}`}</span>
