@@ -10,7 +10,6 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// --- UNIVERSAL HANDSHAKE PROXY ---
 app.all('/api/proxy', async (req, res) => {
   const originalPath = req.query.path;
   if (!originalPath) return res.status(400).send("Missing path");
@@ -18,8 +17,13 @@ app.all('/api/proxy', async (req, res) => {
   const token = (process.env.ABS_API_TOKEN || '').trim();
   const baseUrl = process.env.ABS_BASE_URL.replace(/\/$/, '');
   
-  // Construct the target URL
-  const targetUrl = `${baseUrl}${originalPath.startsWith('/') ? originalPath : '/' + originalPath}`;
+  // SANITIZE THE PATH: Remove leading slash and redundant subfolder
+  let sanitizedPath = originalPath.startsWith('/') ? originalPath.substring(1) : originalPath;
+  if (baseUrl.endsWith('/audiobookshelf') && sanitizedPath.startsWith('audiobookshelf/')) {
+    sanitizedPath = sanitizedPath.replace('audiobookshelf/', '');
+  }
+
+  const targetUrl = `${baseUrl}/${sanitizedPath}`;
   
   try {
     const response = await axios({
@@ -28,19 +32,17 @@ app.all('/api/proxy', async (req, res) => {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Range': req.headers.range || 'bytes=0-',
-        'Content-Type': 'application/json'
       },
-      data: req.body, 
+      data: req.body,
       responseType: 'stream',
       maxRedirects: 5,
       validateStatus: () => true 
     });
 
-    // Detailed Logging for Troubleshooting
     if (response.status >= 400) {
       console.error(`❌ ABS ERROR [${response.status}] for URL: ${targetUrl}`);
     } else {
-      console.log(`✅ ABS SUCCESS [${response.status}]: ${originalPath}`);
+      console.log(`✅ ABS SUCCESS [${response.status}]: ${sanitizedPath}`);
     }
 
     const forwardHeaders = ['content-type', 'content-range', 'accept-ranges', 'content-length'];
@@ -57,4 +59,4 @@ app.all('/api/proxy', async (req, res) => {
 app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
 
-app.listen(PORT, () => console.log(`🚀 Handshake Proxy running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Final Proxy running on port ${PORT}`));
