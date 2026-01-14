@@ -18,11 +18,6 @@ app.all('/api/proxy', async (req, res) => {
   const baseUrl = process.env.ABS_BASE_URL.replace(/\/$/, '');
   const targetUrl = `${baseUrl}/${originalPath.replace(/^\//, '')}`;
   
-  // --- ENHANCED DEBUGGING ---
-  console.log(`\n--- DEBUG START: ${req.method} ${originalPath} ---`);
-  console.log(`Target: ${targetUrl}`);
-  console.log(`Incoming Cookies: ${req.headers.cookie || 'NONE'}`);
-
   try {
     const response = await axios({
       method: req.method,
@@ -30,19 +25,19 @@ app.all('/api/proxy', async (req, res) => {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Range': req.headers.range || 'bytes=0-',
+        // Only forward cookies if they specifically contain a session ID for THIS stream
         'Cookie': req.headers.cookie || '', 
         'User-Agent': req.headers['user-agent']
       },
       data: req.body,
       responseType: 'stream',
+      maxRedirects: 5,
       validateStatus: () => true 
     });
 
-    console.log(`ABS Response: ${response.status}`);
-    console.log(`ABS Set-Cookie: ${response.headers['set-cookie'] || 'NONE'}`);
-
+    // Logging only critical info to keep terminal clean
     if (response.status >= 400) {
-      console.error(`❌ ABS ERROR [${response.status}] for URL: ${targetUrl}`);
+      console.error(`❌ ABS ERROR [${response.status}] for: ${originalPath}`);
     } else {
       console.log(`✅ ABS SUCCESS [${response.status}]: ${originalPath}`);
     }
@@ -61,4 +56,4 @@ app.all('/api/proxy', async (req, res) => {
 app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
 
-app.listen(PORT, () => console.log(`🚀 Debug Proxy active on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Final Proxy running on port ${PORT}`));
