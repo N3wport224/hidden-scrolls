@@ -7,11 +7,7 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// CRITICAL: credentials: true is required for session cookies
-app.use(cors({ 
-  origin: true, 
-  credentials: true 
-}));
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
 app.all('/api/proxy', async (req, res) => {
@@ -20,15 +16,13 @@ app.all('/api/proxy', async (req, res) => {
 
   const token = (process.env.ABS_API_TOKEN || '').trim();
   const baseUrl = process.env.ABS_BASE_URL.replace(/\/$/, '');
+  const targetUrl = `${baseUrl}/${originalPath.replace(/^\//, '')}`;
   
-  // Sanitize path to prevent double-subfolder errors
-  let sanitizedPath = originalPath.startsWith('/') ? originalPath.substring(1) : originalPath;
-  if (baseUrl.endsWith('/audiobookshelf') && sanitizedPath.startsWith('audiobookshelf/')) {
-    sanitizedPath = sanitizedPath.replace('audiobookshelf/', '');
-  }
+  // --- ENHANCED DEBUGGING ---
+  console.log(`\n--- DEBUG START: ${req.method} ${originalPath} ---`);
+  console.log(`Target: ${targetUrl}`);
+  console.log(`Incoming Cookies: ${req.headers.cookie || 'NONE'}`);
 
-  const targetUrl = `${baseUrl}/${sanitizedPath}`;
-  
   try {
     const response = await axios({
       method: req.method,
@@ -37,27 +31,24 @@ app.all('/api/proxy', async (req, res) => {
         'Authorization': `Bearer ${token}`,
         'Range': req.headers.range || 'bytes=0-',
         'Cookie': req.headers.cookie || '', 
-        // Mirror the browser's identity for ABS security
-        'User-Agent': req.headers['user-agent'],
-        'X-Forwarded-For': req.ip
+        'User-Agent': req.headers['user-agent']
       },
       data: req.body,
       responseType: 'stream',
-      maxRedirects: 5,
       validateStatus: () => true 
     });
+
+    console.log(`ABS Response: ${response.status}`);
+    console.log(`ABS Set-Cookie: ${response.headers['set-cookie'] || 'NONE'}`);
 
     if (response.status >= 400) {
       console.error(`❌ ABS ERROR [${response.status}] for URL: ${targetUrl}`);
     } else {
-      console.log(`✅ ABS SUCCESS [${response.status}]: ${sanitizedPath}`);
+      console.log(`✅ ABS SUCCESS [${response.status}]: ${originalPath}`);
     }
 
-    // Forward ALL critical streaming and session headers
-    const forwardHeaders = ['content-type', 'content-range', 'accept-ranges', 'content-length', 'set-cookie', 'cache-control'];
-    forwardHeaders.forEach(h => { 
-      if (response.headers[h]) res.setHeader(h, response.headers[h]); 
-    });
+    const forwardHeaders = ['content-type', 'content-range', 'accept-ranges', 'content-length', 'set-cookie'];
+    forwardHeaders.forEach(h => { if (response.headers[h]) res.setHeader(h, response.headers[h]); });
 
     res.status(response.status);
     response.data.pipe(res);
@@ -70,4 +61,4 @@ app.all('/api/proxy', async (req, res) => {
 app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
 
-app.listen(PORT, () => console.log(`🚀 Final Transparent Proxy active on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Debug Proxy active on port ${PORT}`));
