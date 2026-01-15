@@ -17,23 +17,17 @@ app.get('/api/proxy', async (req, res) => {
 
   try {
     const response = await fetch(ABS_URL, {
-      headers: { 
-        'Authorization': `Bearer ${process.env.ABS_API_TOKEN}`, //
-        'Content-Type': 'application/json'
-      }
+      headers: { 'Authorization': `Bearer ${process.env.ABS_API_TOKEN}` }
     });
 
     const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-      const data = await response.json();
-      res.json(data);
-    } else {
-      const buffer = await response.arrayBuffer();
-      res.set('Content-Type', contentType);
-      res.send(Buffer.from(buffer));
-    }
+    
+    // Crucial for audio: Pipe the stream and set correct headers
+    res.set('Content-Type', contentType);
+    const buffer = await response.arrayBuffer();
+    res.send(Buffer.from(buffer));
   } catch (error) {
-    res.status(500).json({ error: "ABS Proxy Failed" });
+    res.status(500).json({ error: "Audio stream failed" });
   }
 });
 

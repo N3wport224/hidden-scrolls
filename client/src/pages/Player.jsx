@@ -104,19 +104,16 @@ export default function Player() {
           <span>{formatTime(currentTime)}</span>
           <span>-{formatTime(duration - currentTime)}</span>
         </div>
-        
         <audio 
-          ref={audioRef} 
-          controls 
-          className="w-full h-10 invert-[.9] opacity-80"
-          onPlay={handlePlay}
-          onLoadedMetadata={(e) => setDuration(e.target.duration)}
-          onTimeUpdate={(e) => {
-            setCurrentTime(e.target.currentTime);
-            localStorage.setItem(`progress_${id}`, e.target.currentTime);
-          }}
-          src={getProxyUrl(`/api/items/${id}/file`)} 
-        />
+  ref={audioRef} 
+  controls 
+  crossOrigin="anonymous"
+  className="w-full h-10 invert-[.9] opacity-80"
+  src={getProxyUrl(`/api/items/${id}/file`)} 
+  onLoadedMetadata={(e) => console.log("Audio Loaded:", e.target.duration)}
+  onError={(e) => console.error("Audio Playback Error:", e)}
+/>
+        
       </div>
     </div>
   );
