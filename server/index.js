@@ -12,7 +12,7 @@ app.use(express.static(path.join(__dirname, '../client/dist')));
 
 /**
  * STREAMING PROXY
- * Pipes binary audio streams correctly to fix 404 playback errors
+ * Pipes binary audio streams correctly to fix ABS Source Errors
  */
 app.get('/api/proxy', async (req, res) => {
   const { path: apiPath } = req.query;
@@ -28,7 +28,7 @@ app.get('/api/proxy', async (req, res) => {
     const contentType = response.headers.get('content-type');
     res.setHeader('Content-Type', contentType);
 
-    // Stream binary data directly to the client to fix the 404 error
+    // Stream binary data directly to the client to fix playback errors
     const reader = response.body.getReader();
     function push() {
       reader.read().then(({ done, value }) => {
