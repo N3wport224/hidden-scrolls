@@ -32,15 +32,15 @@ export default function Player() {
 
   const formatTime = (s) => isNaN(s) ? "0:00:00" : new Date(s * 1000).toISOString().substr(11, 8);
 
-  if (!book) return <div className="min-h-screen bg-[#0f172a] text-cyan-400 flex items-center justify-center font-bold">LOADING...</div>;
+  if (!book) return <div className="min-h-screen bg-[#0f172a] text-cyan-400 flex items-center justify-center font-bold italic">LOADING HIDDEN SCROLL...</div>;
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-white flex flex-col items-center p-6">
       <div className="w-full max-w-md flex justify-between mb-10">
-        <button onClick={() => navigate('/')} className="bg-slate-800/50 p-3 rounded-xl">←</button>
+        <button onClick={() => navigate('/')} className="bg-slate-800/50 p-3 rounded-xl active:scale-90 transition-transform">←</button>
         <button 
           onClick={() => setBluetoothMode(!bluetoothMode)} 
-          className={`px-4 py-2 rounded-xl text-[10px] font-bold ${bluetoothMode ? 'bg-emerald-500 text-white' : 'bg-slate-800/50 text-slate-400'}`}
+          className={`px-4 py-2 rounded-xl text-[10px] font-bold transition-all ${bluetoothMode ? 'bg-emerald-500 text-white shadow-lg' : 'bg-slate-800/50 text-slate-400'}`}
         >
           BT SILENCE: {bluetoothMode ? 'ON' : 'OFF'}
         </button>
@@ -49,7 +49,7 @@ export default function Player() {
       <audio ref={silentRef} src={SILENT_AUDIO_SRC} loop />
 
       <div className="aspect-[2/3] w-64 bg-slate-800 rounded-3xl shadow-2xl mb-8 overflow-hidden border border-white/5">
-        <img src={getProxyUrl(`/api/items/${id}/cover`)} className="w-full h-full object-cover" />
+        <img src={getProxyUrl(`/api/items/${id}/cover`)} className="w-full h-full object-cover" alt="Cover" />
       </div>
 
       <div className="w-full max-w-md bg-slate-800/40 backdrop-blur-md p-8 rounded-[40px] border border-white/5 shadow-xl">
@@ -57,43 +57,47 @@ export default function Player() {
         <p className="text-[10px] text-slate-500 text-center uppercase tracking-widest mb-8">{book.media?.metadata?.authorName}</p>
 
         <div className="flex justify-between items-center mb-8">
-          <button onClick={() => audioRef.current.currentTime -= 15} className="w-16 h-16 rounded-full border-2 border-cyan-400/30 text-cyan-400 flex items-center justify-center">↺</button>
+          <button onClick={() => audioRef.current.currentTime -= 15} className="w-16 h-16 rounded-full border-2 border-cyan-400/30 text-cyan-400 flex items-center justify-center active:bg-cyan-400/10 transition-colors text-xl">↺</button>
           <button onClick={cycleSleep} className="flex flex-col items-center">
-            <div className={`w-12 h-12 flex items-center justify-center rounded-full ${sleepTimer ? 'bg-orange-500 shadow-lg' : 'bg-slate-700/50'}`}>⏲</div>
+            <div className={`w-12 h-12 flex items-center justify-center rounded-full transition-all ${sleepTimer ? 'bg-orange-500 shadow-lg' : 'bg-slate-700/50'}`}>
+              <span className="text-xl">⏲</span>
+            </div>
             <span className="text-[9px] font-bold mt-2 text-slate-400 uppercase">{sleepTimer ? `${sleepTimer}m` : 'Sleep'}</span>
           </button>
-          <button onClick={() => audioRef.current.currentTime += 30} className="w-16 h-16 rounded-full border-2 border-cyan-400/30 text-cyan-400 flex items-center justify-center">↻</button>
+          <button onClick={() => audioRef.current.currentTime += 30} className="w-16 h-16 rounded-full border-2 border-cyan-400/30 text-cyan-400 flex items-center justify-center active:bg-cyan-400/10 transition-colors text-xl">↻</button>
         </div>
-
-        {book.media?.chapters?.length > 0 && (
-          <select 
-            className="w-full bg-slate-900/50 border border-white/10 rounded-xl p-3 text-xs mb-8 text-cyan-400"
-            onChange={(e) => audioRef.current.currentTime = parseFloat(e.target.value)}
-          >
-            <option>CHAPTERS ({book.media.chapters.length})</option>
-            {book.media.chapters.map((chap, i) => (
-              <option key={i} value={chap.start}>{chap.title} ({formatTime(chap.start)})</option>
-            ))}
-          </select>
-        )}
 
         <div className="flex justify-between px-2 mb-2 text-[12px] font-mono text-slate-500">
           <span>{formatTime(currentTime)}</span>
           <span>-{formatTime(duration - currentTime)}</span>
         </div>
         
-       <audio 
+        <audio 
           ref={audioRef} 
           controls 
-          className="w-full h-10 invert-[.9] opacity-80"
-          onTimeUpdate={(e) => setCurrentTime(e.target.currentTime)}
+          className="w-full h-10 invert-[.9] opacity-80 mb-6"
           onLoadedMetadata={(e) => setDuration(e.target.duration)}
-          // Hit the dedicated server route for the file
-          src={`http://100.81.193.52:3000/api/items/${id}/file`} 
+          onTimeUpdate={(e) => {
+            setCurrentTime(e.target.currentTime);
+            localStorage.setItem(`progress_${id}`, e.target.currentTime);
+          }}
+          src={getProxyUrl(`/api/items/${id}/file`)} 
         />
-    // ...
-  );
-}
+
+        {/* CHAPTERS DROPDOWN: Moved below player as requested */}
+        {book.media?.chapters?.length > 0 && (
+          <select 
+            className="w-full bg-slate-900/50 border border-white/10 rounded-xl p-3 text-xs text-cyan-400 outline-none active:border-cyan-400 transition-all appearance-none text-center"
+            onChange={(e) => audioRef.current.currentTime = parseFloat(e.target.value)}
+          >
+            <option>SELECT CHAPTER ({book.media.chapters.length})</option>
+            {book.media.chapters.map((chap, i) => (
+              <option key={i} value={chap.start}>
+                {chap.title} ({formatTime(chap.start)})
+              </option>
+            ))}
+          </select>
+        )}
       </div>
     </div>
   );
