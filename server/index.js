@@ -28,10 +28,7 @@ app.get('/api/proxy', async (req, res) => {
     const reader = response.body.getReader();
     function push() {
       reader.read().then(({ done, value }) => {
-        if (done) {
-          res.end();
-          return;
-        }
+        if (done) { res.end(); return; }
         res.write(value);
         push();
       });

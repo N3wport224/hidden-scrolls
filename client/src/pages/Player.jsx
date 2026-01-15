@@ -54,12 +54,12 @@ export default function Player() {
         <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-8 italic">{book.media?.metadata?.authorName}</p>
 
         <div className="flex justify-between items-center mb-8">
-          <button onClick={() => audioRef.current.currentTime -= 15} className="w-16 h-16 rounded-full border-2 border-cyan-400/30 text-cyan-400 flex items-center justify-center text-xl">↺</button>
+          <button onClick={() => audioRef.current.currentTime -= 15} className="w-16 h-16 rounded-full border-2 border-cyan-400/30 text-cyan-400 flex items-center justify-center text-xl active:bg-cyan-400/10 transition-colors">↺</button>
           <button onClick={cycleSleep} className="flex flex-col items-center">
-            <div className={`w-12 h-12 flex items-center justify-center rounded-full ${sleepTimer ? 'bg-orange-500 shadow-lg' : 'bg-slate-700/50'}`}>⏲</div>
+            <div className={`w-12 h-12 flex items-center justify-center rounded-full transition-all ${sleepTimer ? 'bg-orange-500 shadow-lg' : 'bg-slate-700/50'}`}>⏲</div>
             <span className="text-[9px] font-bold mt-2 text-slate-400 uppercase tracking-tighter">{sleepTimer ? `${sleepTimer}m` : 'Sleep'}</span>
           </button>
-          <button onClick={() => audioRef.current.currentTime += 30} className="w-16 h-16 rounded-full border-2 border-cyan-400/30 text-cyan-400 flex items-center justify-center text-xl">↻</button>
+          <button onClick={() => audioRef.current.currentTime += 30} className="w-16 h-16 rounded-full border-2 border-cyan-400/30 text-cyan-400 flex items-center justify-center text-xl active:bg-cyan-400/10 transition-colors">↻</button>
         </div>
 
         <div className="flex justify-between px-2 mb-2 text-[12px] font-mono text-slate-500">
