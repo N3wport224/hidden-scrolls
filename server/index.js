@@ -14,30 +14,29 @@ app.use(express.static(path.join(__dirname, '../client/dist')));
 
 /**
  * API PROXY ROUTE
- * This allows the frontend to bypass CORS and talk to the Audiobookshelf API
+ * Fixed to use ABS_API_TOKEN to match your .env file
  */
 app.get('/api/proxy', async (req, res) => {
   const { path: apiPath } = req.query;
   
-  // Audiobookshelf typically runs on port 13378
+  // Use localhost since ABS and this server are on the same Pi
   const ABS_URL = `http://localhost:13378${decodeURIComponent(apiPath)}`;
 
   try {
     const response = await fetch(ABS_URL, {
       headers: { 
-        'Authorization': `Bearer ${process.env.ABS_TOKEN}`,
+        'Authorization': `Bearer ${process.env.ABS_API_TOKEN}`, // MATCHED TO YOUR .env
         'Content-Type': 'application/json'
       }
     });
 
-    // Check if it's a JSON response or a binary (like an image/audio stream)
     const contentType = response.headers.get('content-type');
     
     if (contentType && contentType.includes('application/json')) {
       const data = await response.json();
       res.json(data);
     } else {
-      // For images/covers or audio streams, pipe the data directly
+      // Handles book covers and audio streams
       const buffer = await response.arrayBuffer();
       res.set('Content-Type', contentType);
       res.send(Buffer.from(buffer));
@@ -48,7 +47,6 @@ app.get('/api/proxy', async (req, res) => {
   }
 });
 
-// Post route to start sessions (used in Player.jsx)
 app.post('/api/proxy/play', async (req, res) => {
     const { path: apiPath } = req.query;
     const ABS_URL = `http://localhost:13378${decodeURIComponent(apiPath)}`;
@@ -57,7 +55,7 @@ app.post('/api/proxy/play', async (req, res) => {
       const response = await fetch(ABS_URL, {
         method: 'POST',
         headers: { 
-          'Authorization': `Bearer ${process.env.ABS_TOKEN}`,
+          'Authorization': `Bearer ${process.env.ABS_API_TOKEN}`, // MATCHED TO YOUR .env
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(req.body)
@@ -69,8 +67,21 @@ app.post('/api/proxy/play', async (req, res) => {
     }
 });
 
-// "The Catch-All": Serve React's index.html for any unknown routes
-// This prevents 404s when you refresh the page on the /player/:id route
+// For individual book items
+app.get('/api/items/:id', async (req, res) => {
+  const ABS_URL = `http://localhost:13378/api/items/${req.params.id}`;
+  try {
+    const response = await fetch(ABS_URL, {
+      headers: { 'Authorization': `Bearer ${process.env.ABS_API_TOKEN}` }
+    });
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch item" });
+  }
+});
+
+// React Catch-all
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
