@@ -12,7 +12,7 @@ app.use(express.static(path.join(__dirname, '../client/dist')));
 
 /**
  * STREAMING PROXY
- * Fixed to handle binary audio streams correctly
+ * Fixed to pipe binary audio streams correctly
  */
 app.get('/api/proxy', async (req, res) => {
   const { path: apiPath } = req.query;
@@ -31,7 +31,7 @@ app.get('/api/proxy', async (req, res) => {
     const contentType = response.headers.get('content-type');
     res.setHeader('Content-Type', contentType);
 
-    // Stream binary data directly to the client to fix the 404 error
+    // Stream binary data directly to fix the 404 playback error
     const reader = response.body.getReader();
     function push() {
       reader.read().then(({ done, value }) => {
@@ -54,4 +54,4 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
 
-app.listen(PORT, () => console.log(`🚀 Car Mode Engine active on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Car Mode active on port ${PORT}`));

@@ -32,7 +32,7 @@ export default function Player() {
 
   const formatTime = (s) => isNaN(s) ? "0:00:00" : new Date(s * 1000).toISOString().substr(11, 8);
 
-  if (!book) return <div className="min-h-screen bg-[#0f172a] text-cyan-400 flex items-center justify-center font-bold">LOADING HIDDEN SCROLL...</div>;
+  if (!book) return <div className="min-h-screen bg-[#0f172a] text-cyan-400 flex items-center justify-center font-bold italic">RESTORING SCROLL...</div>;
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-white flex flex-col items-center p-6 text-center">
