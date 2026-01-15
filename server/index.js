@@ -21,7 +21,7 @@ app.get('/api/proxy', async (req, res) => {
   try {
     const response = await fetch(ABS_URL, {
       headers: { 
-        'Authorization': `Bearer ${process.env.ABS_API_TOKEN}`, //
+        'Authorization': `Bearer ${process.env.ABS_API_TOKEN}`, 
         'Content-Type': 'application/json'
       }
     });
@@ -54,4 +54,4 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
 
-app.listen(PORT, () => console.log(`🚀 Car Mode Engine active on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Car Mode active on port ${PORT}`));
