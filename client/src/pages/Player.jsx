@@ -2,7 +2,6 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchBookDetails, getProxyUrl } from '../lib/api';
 
-// Silent 1-second MP3 to keep Bluetooth active
 const SILENT_AUDIO_SRC = "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD//////////////////////////////////////////////////////////////////wAAAAAATGF2YzU4LjU0AAAAAAAAAAAAAAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD//////////////////////////////////////////////////////////////////wAAAAAATGF2YzU4LjU0AAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
 export default function Player() {
@@ -14,29 +13,17 @@ export default function Player() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const audioRef = useRef(null);
-  const silentRef = useRef(null); 
-  const seekApplied = useRef(false);
+  const silentRef = useRef(null);
 
   useEffect(() => {
-    fetchBookDetails(id).then(setBook).catch(err => console.error("Player Load Error:", err));
+    fetchBookDetails(id).then(setBook).catch(err => console.error("Load Error:", err));
   }, [id]);
 
-  // Bluetooth Silent Noise Logic
   useEffect(() => {
     if (silentRef.current) {
       bluetoothMode ? silentRef.current.play().catch(() => {}) : silentRef.current.pause();
     }
   }, [bluetoothMode]);
-
-  // Rewind 10s on resume logic
-  const handlePlay = () => {
-    if (seekApplied.current || !audioRef.current) return;
-    const saved = localStorage.getItem(`progress_${id}`);
-    if (saved) {
-      audioRef.current.currentTime = Math.max(0, parseFloat(saved) - 10);
-      seekApplied.current = true;
-    }
-  };
 
   const cycleSleep = () => {
     const opts = [null, 15, 30, 60, 120];
@@ -49,12 +36,11 @@ export default function Player() {
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-white flex flex-col items-center p-6">
-      {/* Top Navigation */}
       <div className="w-full max-w-md flex justify-between mb-10">
-        <button onClick={() => navigate('/')} className="bg-slate-800/50 p-3 rounded-xl active:scale-95 transition-transform">←</button>
+        <button onClick={() => navigate('/')} className="bg-slate-800/50 p-3 rounded-xl">←</button>
         <button 
           onClick={() => setBluetoothMode(!bluetoothMode)} 
-          className={`px-4 py-2 rounded-xl text-[10px] font-bold transition-all ${bluetoothMode ? 'bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'bg-slate-800/50 text-slate-400'}`}
+          className={`px-4 py-2 rounded-xl text-[10px] font-bold ${bluetoothMode ? 'bg-emerald-500 text-white' : 'bg-slate-800/50 text-slate-400'}`}
         >
           BT SILENCE: {bluetoothMode ? 'ON' : 'OFF'}
         </button>
@@ -62,40 +48,31 @@ export default function Player() {
 
       <audio ref={silentRef} src={SILENT_AUDIO_SRC} loop />
 
-      {/* Book Cover */}
       <div className="aspect-[2/3] w-64 bg-slate-800 rounded-3xl shadow-2xl mb-8 overflow-hidden border border-white/5">
-        <img src={getProxyUrl(`/api/items/${id}/cover`)} className="w-full h-full object-cover" alt="Cover" />
+        <img src={getProxyUrl(`/api/items/${id}/cover`)} className="w-full h-full object-cover" />
       </div>
 
       <div className="w-full max-w-md bg-slate-800/40 backdrop-blur-md p-8 rounded-[40px] border border-white/5 shadow-xl">
         <h2 className="text-lg font-bold truncate text-center mb-1">{book.media?.metadata?.title}</h2>
         <p className="text-[10px] text-slate-500 text-center uppercase tracking-widest mb-8">{book.media?.metadata?.authorName}</p>
 
-        {/* Playback Controls */}
         <div className="flex justify-between items-center mb-8">
-          <button onClick={() => audioRef.current.currentTime -= 15} className="w-16 h-16 rounded-full border-2 border-cyan-400/30 text-cyan-400 flex items-center justify-center active:bg-cyan-400/10">↺</button>
-          
+          <button onClick={() => audioRef.current.currentTime -= 15} className="w-16 h-16 rounded-full border-2 border-cyan-400/30 text-cyan-400 flex items-center justify-center">↺</button>
           <button onClick={cycleSleep} className="flex flex-col items-center">
-            <div className={`w-12 h-12 flex items-center justify-center rounded-full transition-all ${sleepTimer ? 'bg-orange-500 shadow-lg' : 'bg-slate-700/50'}`}>
-              <span className="text-xl">⏲</span>
-            </div>
+            <div className={`w-12 h-12 flex items-center justify-center rounded-full ${sleepTimer ? 'bg-orange-500 shadow-lg' : 'bg-slate-700/50'}`}>⏲</div>
             <span className="text-[9px] font-bold mt-2 text-slate-400 uppercase">{sleepTimer ? `${sleepTimer}m` : 'Sleep'}</span>
           </button>
-
-          <button onClick={() => audioRef.current.currentTime += 30} className="w-16 h-16 rounded-full border-2 border-cyan-400/30 text-cyan-400 flex items-center justify-center active:bg-cyan-400/10">↻</button>
+          <button onClick={() => audioRef.current.currentTime += 30} className="w-16 h-16 rounded-full border-2 border-cyan-400/30 text-cyan-400 flex items-center justify-center">↻</button>
         </div>
 
-        {/* Chapters Dropdown */}
         {book.media?.chapters?.length > 0 && (
           <select 
-            className="w-full bg-slate-900/50 border border-white/10 rounded-xl p-3 text-xs mb-8 text-cyan-400 outline-none"
+            className="w-full bg-slate-900/50 border border-white/10 rounded-xl p-3 text-xs mb-8 text-cyan-400"
             onChange={(e) => audioRef.current.currentTime = parseFloat(e.target.value)}
           >
             <option>CHAPTERS ({book.media.chapters.length})</option>
             {book.media.chapters.map((chap, i) => (
-              <option key={i} value={chap.start}>
-                {chap.title} ({formatTime(chap.start)})
-              </option>
+              <option key={i} value={chap.start}>{chap.title} ({formatTime(chap.start)})</option>
             ))}
           </select>
         )}
@@ -104,16 +81,18 @@ export default function Player() {
           <span>{formatTime(currentTime)}</span>
           <span>-{formatTime(duration - currentTime)}</span>
         </div>
-        <audio 
-  ref={audioRef} 
-  controls 
-  crossOrigin="anonymous"
-  className="w-full h-10 invert-[.9] opacity-80"
-  src={getProxyUrl(`/api/items/${id}/file`)} 
-  onLoadedMetadata={(e) => console.log("Audio Loaded:", e.target.duration)}
-  onError={(e) => console.error("Audio Playback Error:", e)}
-/>
         
+        <audio 
+          ref={audioRef} 
+          controls 
+          className="w-full h-10 invert-[.9] opacity-80"
+          onLoadedMetadata={(e) => setDuration(e.target.duration)}
+          onTimeUpdate={(e) => {
+            setCurrentTime(e.target.currentTime);
+            localStorage.setItem(`progress_${id}`, e.target.currentTime);
+          }}
+          src={getProxyUrl(`/api/items/${id}/file`)} 
+        />
       </div>
     </div>
   );

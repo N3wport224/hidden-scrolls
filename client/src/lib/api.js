@@ -15,8 +15,7 @@ export async function fetchLibrary() {
 }
 
 export async function fetchBookDetails(id) {
-  // Use the proxy to ensure the ABS_API_TOKEN is attached by the server
   const response = await fetch(getProxyUrl(`/api/items/${id}`));
-  if (!response.ok) return { error: true };
+  if (!response.ok) return null;
   return await response.json();
 }
