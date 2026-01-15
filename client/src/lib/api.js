@@ -15,8 +15,8 @@ export async function fetchLibrary() {
 }
 
 export async function fetchBookDetails(id) {
-  // We hit your server's custom item route
-  const response = await fetch(`http://100.81.193.52:3000/api/items/${id}`);
+  // Use the proxy route instead of the direct items route
+  const response = await fetch(getProxyUrl(`/api/items/${id}`));
   if (!response.ok) return { error: true };
   return await response.json();
 }
