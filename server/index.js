@@ -8,11 +8,9 @@ const PORT = 3000;
 
 app.use(cors());
 app.use(express.json());
-
-// Serve static files from React build
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
-// API PROXY: Handles all communication with Audiobookshelf
+// THE ONLY PROXY ROUTE YOU NEED
 app.get('/api/proxy', async (req, res) => {
   const { path: apiPath } = req.query;
   const ABS_URL = `http://localhost:13378${decodeURIComponent(apiPath)}`;
@@ -35,14 +33,12 @@ app.get('/api/proxy', async (req, res) => {
       res.send(Buffer.from(buffer));
     }
   } catch (error) {
-    console.error("Proxy Error:", error);
-    res.status(500).json({ error: "ABS Connection Failed" });
+    res.status(500).json({ error: "ABS Proxy Failed" });
   }
 });
 
-// React Catch-all: Keeps the page from breaking on refresh
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
 
-app.listen(PORT, () => console.log(`🚀 Car Engine active on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Car Engine active on ${PORT}`));
