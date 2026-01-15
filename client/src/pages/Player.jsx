@@ -7,61 +7,48 @@ export default function Player() {
   const navigate = useNavigate();
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const audioRef = useRef(null);
 
   useEffect(() => {
-    let isMounted = true;
     setLoading(true);
-
     fetchBookDetails(id)
       .then((data) => {
-        if (!isMounted) return;
-        if (!data || data.error) throw new Error("Could not find book details");
+        if (!data || data.error) throw new Error("Data error");
         setBook(data);
         setLoading(false);
       })
       .catch((err) => {
-        if (!isMounted) return;
-        console.error("❌ Player Error:", err);
-        setError(err.message);
+        console.error("❌ Player Load Error:", err);
         setLoading(false);
       });
-
-    return () => { isMounted = false; };
   }, [id]);
 
+  // THIS PREVENTS THE BLANK SCREEN CRASH
   if (loading) return (
-    <div className="min-h-screen bg-[#0f172a] flex items-center justify-center">
-      <div className="text-cyan-400 font-bold animate-pulse">RETRIEVING SCROLL...</div>
+    <div className="min-h-screen bg-[#0f172a] flex items-center justify-center text-cyan-400 font-bold">
+      LOADING BOOK...
     </div>
   );
 
-  if (error || !book) return (
-    <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center text-white p-10 text-center">
-      <p className="text-red-400 mb-4 font-bold">ERROR: {error || "Book not found"}</p>
-      <button onClick={() => navigate('/')} className="bg-slate-800 px-6 py-2 rounded-xl border border-white/10">Return to Library</button>
+  if (!book || !book.media) return (
+    <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center text-white">
+      <p>Book details not found.</p>
+      <button onClick={() => navigate('/')} className="mt-4 bg-slate-800 px-4 py-2 rounded">Back to Library</button>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-white p-6 flex flex-col items-center">
-      <div className="w-full max-w-md flex justify-between mb-10">
-        <button onClick={() => navigate('/')} className="bg-slate-800/50 p-3 rounded-xl active:scale-95 transition-transform">←</button>
-        <div className="text-cyan-400 font-black italic tracking-tighter">PLAYING</div>
-      </div>
+    <div className="min-h-screen bg-[#0f172a] text-white flex flex-col items-center p-6">
+      <button onClick={() => navigate('/')} className="self-start mb-10 bg-slate-800 p-3 rounded-xl">←</button>
       
       <div className="aspect-[2/3] w-64 bg-slate-800 rounded-3xl shadow-2xl mb-8 overflow-hidden border border-white/5">
-        <img 
-          src={getProxyUrl(`/api/items/${id}/cover`)} 
-          className="w-full h-full object-cover" 
-          alt="Cover"
-        />
+        <img src={getProxyUrl(`/api/items/${id}/cover`)} className="w-full h-full object-cover" alt="Cover" />
       </div>
 
-      <div className="w-full max-w-md bg-slate-800/40 backdrop-blur-md p-8 rounded-[40px] border border-white/5 shadow-xl">
-        <h2 className="text-lg font-bold truncate text-center mb-1">{book.media?.metadata?.title || 'Unknown Title'}</h2>
-        <p className="text-[10px] text-slate-500 text-center uppercase tracking-widest mb-8">{book.media?.metadata?.authorName || 'Unknown Author'}</p>
+      <div className="w-full max-w-md bg-slate-800/40 backdrop-blur-md p-8 rounded-[40px] border border-white/5 shadow-xl text-center">
+        {/* Safe navigation using ?. prevents crashes */}
+        <h2 className="text-lg font-bold truncate mb-1">{book.media?.metadata?.title}</h2>
+        <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-8">{book.media?.metadata?.authorName}</p>
 
         <audio 
           ref={audioRef} 

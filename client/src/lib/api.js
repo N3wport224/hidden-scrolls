@@ -15,7 +15,7 @@ export async function fetchLibrary() {
 }
 
 export async function fetchBookDetails(id) {
-  // MUST use the proxy route to include authentication
+  // Use the proxy to ensure the ABS_API_TOKEN is attached by the server
   const response = await fetch(getProxyUrl(`/api/items/${id}`));
   if (!response.ok) return { error: true };
   return await response.json();
