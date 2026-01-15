@@ -24,7 +24,7 @@ app.get('/api/proxy', async (req, res) => {
     const contentType = response.headers.get('content-type');
     res.setHeader('Content-Type', contentType);
 
-    // Pipe the stream directly to resolve 404 and loading issues
+    // Stream binary data directly to fix playback 404s
     const reader = response.body.getReader();
     function push() {
       reader.read().then(({ done, value }) => {
