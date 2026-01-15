@@ -1,32 +1,33 @@
-import { API_BASE_URL } from '../config';
+import { ABS_BASE_URL } from '../config';
 
-// 1. Fetch the list of books
-export async function fetchBooks() {
+export const getProxyUrl = (path) => {
+  // Directs requests through your Node.js server to handle headers
+  return `http://100.81.193.52:3000/api/proxy?path=${encodeURIComponent(path)}`;
+};
+
+export async function fetchLibrary() {
   try {
-    // YOUR LIBRARY ID IS HERE:
-    const response = await fetch(`${API_BASE_URL}?path=/api/libraries/575767a4-d45d-466c-8295-8766aa060b44/items?mediaType=audiobook`);
-    if (!response.ok) throw new Error('Failed to fetch books');
-    return await response.json();
+    // 1. Get all libraries
+    const response = await fetch(getProxyUrl('/api/libraries'));
+    const data = await response.json();
+    
+    // 2. Target the first library (Audiobooks)
+    const libraryId = data.libraries?.[0]?.id || data[0]?.id;
+    if (!libraryId) return [];
+
+    // 3. Fetch items for that library
+    const itemsResponse = await fetch(getProxyUrl(`/api/libraries/${libraryId}/items`));
+    const itemsData = await itemsResponse.json();
+    
+    // Return the array of books
+    return itemsData.results || [];
   } catch (error) {
-    console.error(error);
-    return { results: [] };
+    console.error("Failed to fetch library:", error);
+    return [];
   }
 }
 
-// 2. Fetch details for one book
 export async function fetchBookDetails(id) {
-  try {
-    const response = await fetch(`${API_BASE_URL}?path=/api/items/${id}`);
-    if (!response.ok) throw new Error('Failed to fetch book details');
-    return await response.json();
-  } catch (error) {
-    console.error("Error fetching single book:", error);
-    return null;
-  }
-}
-
-// 3. NEW: Generate the correct URL for Covers and Audio
-export function getProxyUrl(targetPath) {
-  // This forces images/audio to go through our server
-  return `${API_BASE_URL}?path=${encodeURIComponent(targetPath)}`;
+  const response = await fetch(getProxyUrl(`/api/items/${id}`));
+  return await response.json();
 }
