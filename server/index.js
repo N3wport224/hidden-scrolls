@@ -1,74 +1,80 @@
-require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const axios = require('axios');
 const path = require('path');
+require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 
-app.use(cors({ origin: true, credentials: true }));
+app.use(cors());
 app.use(express.json());
 
-// --- EXISTING PROXY ---
-app.all('/api/proxy', async (req, res) => {
-  const originalPath = req.query.path;
-  if (!originalPath) return res.status(400).send("Missing path");
-
-  const token = (process.env.ABS_API_TOKEN || '').trim();
-  const baseUrl = process.env.ABS_BASE_URL.replace(/\/$/, '');
-  const targetUrl = `${baseUrl}/${originalPath.replace(/^\//, '')}`;
-  
-  try {
-    const response = await axios({
-      method: req.method,
-      url: targetUrl,
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Range': req.headers.range || 'bytes=0-',
-        'User-Agent': req.headers['user-agent']
-      },
-      data: req.body,
-      responseType: 'stream',
-      validateStatus: () => true 
-    });
-
-    const headersToForward = ['content-type', 'content-length', 'content-range', 'accept-ranges', 'cache-control'];
-    headersToForward.forEach(h => { if (response.headers[h]) res.setHeader(h, response.headers[h]); });
-
-    res.status(response.status);
-    response.data.pipe(res);
-  } catch (error) {
-    if (!res.headersSent) res.status(500).send("Proxy Error");
-  }
-});
-
-// --- NEW: PROGRESS SYNC ENDPOINT ---
-app.post('/api/sync', async (req, res) => {
-  const { sessionId, currentTime, duration, isFinished } = req.body;
-  const token = (process.env.ABS_API_TOKEN || '').trim();
-  const baseUrl = process.env.ABS_BASE_URL.replace(/\/$/, '');
-  
-  // Audiobookshelf expects sync updates at this endpoint
-  const targetUrl = `${baseUrl}/api/session/${sessionId}/sync`;
-
-  try {
-    await axios.post(targetUrl, {
-      currentTime: currentTime,
-      timeListened: 10, // Assume 10s sync interval
-      duration: duration,
-      isFinished: isFinished || false
-    }, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    res.status(200).send({ success: true });
-  } catch (error) {
-    console.error("Sync Error:", error.message);
-    res.status(200).send({ success: false }); // Don't crash the player if sync fails
-  }
-});
-
+// Serve the static files from the React app's build folder
 app.use(express.static(path.join(__dirname, '../client/dist')));
-app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
 
-app.listen(PORT, () => console.log(`🚀 Car Mode Engine active on port ${PORT}`));
+/**
+ * API PROXY ROUTE
+ * This allows the frontend to bypass CORS and talk to the Audiobookshelf API
+ */
+app.get('/api/proxy', async (req, res) => {
+  const { path: apiPath } = req.query;
+  
+  // Audiobookshelf typically runs on port 13378
+  const ABS_URL = `http://localhost:13378${decodeURIComponent(apiPath)}`;
+
+  try {
+    const response = await fetch(ABS_URL, {
+      headers: { 
+        'Authorization': `Bearer ${process.env.ABS_TOKEN}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    // Check if it's a JSON response or a binary (like an image/audio stream)
+    const contentType = response.headers.get('content-type');
+    
+    if (contentType && contentType.includes('application/json')) {
+      const data = await response.json();
+      res.json(data);
+    } else {
+      // For images/covers or audio streams, pipe the data directly
+      const buffer = await response.arrayBuffer();
+      res.set('Content-Type', contentType);
+      res.send(Buffer.from(buffer));
+    }
+  } catch (error) {
+    console.error("❌ Proxy Error:", error);
+    res.status(500).json({ error: "Failed to connect to Audiobookshelf" });
+  }
+});
+
+// Post route to start sessions (used in Player.jsx)
+app.post('/api/proxy/play', async (req, res) => {
+    const { path: apiPath } = req.query;
+    const ABS_URL = `http://localhost:13378${decodeURIComponent(apiPath)}`;
+  
+    try {
+      const response = await fetch(ABS_URL, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${process.env.ABS_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(req.body)
+      });
+      const data = await response.json();
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Playback session failed" });
+    }
+});
+
+// "The Catch-All": Serve React's index.html for any unknown routes
+// This prevents 404s when you refresh the page on the /player/:id route
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+});
+
+app.listen(PORT, () => {
+  console.log(`🚀 Car Mode Engine active on port ${PORT}`);
+});

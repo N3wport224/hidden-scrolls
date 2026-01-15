@@ -10,7 +10,7 @@ export default function Player() {
   const [book, setBook] = useState(null);
   const [bluetoothMode, setBluetoothMode] = useState(false);
   const [sessionId, setSessionId] = useState(null); 
-  const [sleepTimer, setSleepTimer] = useState(null); // Minutes remaining
+  const [sleepTimer, setSleepTimer] = useState(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const audioRef = useRef(null);
@@ -24,17 +24,15 @@ export default function Player() {
         const res = await fetch(getProxyUrl(`/api/items/${id}/play`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'omit', 
-          body: JSON.stringify({ deviceId: 'car-player-pro-final-v3', supportedMimeTypes: ['audio/mpeg', 'audio/mp4'], forceDirectPlay: true })
+          body: JSON.stringify({ deviceId: 'car-player-vfinal', supportedMimeTypes: ['audio/mpeg', 'audio/mp4'], forceDirectPlay: true })
         });
         const data = await res.json();
         if (data.id) setSessionId(data.id); 
-      } catch (err) { console.error("❌ Session failed:", err); }
+      } catch (err) { console.error("❌ Session Error:", err); }
     };
     initSession();
   }, [id]);
 
-  // NEW: Multi-stage Sleep Timer Logic
   useEffect(() => {
     if (sleepTimer) {
       const timer = setTimeout(() => {
@@ -51,138 +49,66 @@ export default function Player() {
     }
   }, [bluetoothMode]);
 
-  const formatTime = (seconds) => {
-    if (isNaN(seconds)) return "0:00:00";
-    return new Date(seconds * 1000).toISOString().substr(11, 8);
+  const cycleSleep = () => {
+    const opts = [null, 15, 30, 60, 120];
+    setSleepTimer(opts[(opts.indexOf(sleepTimer) + 1) % opts.length]);
   };
 
-  // Helper to cycle through sleep options
-  const cycleSleepTimer = () => {
-    const options = [null, 15, 30, 60, 120];
-    const currentIndex = options.indexOf(sleepTimer);
-    const nextIndex = (currentIndex + 1) % options.length;
-    setSleepTimer(options[nextIndex]);
-  };
+  const formatTime = (s) => isNaN(s) ? "0:00:00" : new Date(s * 1000).toISOString().substr(11, 8);
 
-  const handlePlayUnlock = () => {
+  const handlePlay = () => {
     if (seekApplied.current || !audioRef.current) return;
-    const savedTime = localStorage.getItem(`progress_${id}`);
-    if (savedTime) {
-      const target = parseFloat(savedTime);
-      const rewindTime = Math.max(0, target - 10); 
-      audioRef.current.currentTime = rewindTime;
+    const saved = localStorage.getItem(`progress_${id}`);
+    if (saved) {
+      audioRef.current.currentTime = Math.max(0, parseFloat(saved) - 10);
       seekApplied.current = true;
     }
   };
 
-  if (!book) return <div className="p-10 text-white text-center">Loading...</div>;
-
-  const audioUrl = sessionId ? getProxyUrl(`/public/session/${sessionId}/track/1`) : null;
+  if (!book) return <div className="p-10 text-white text-center">Loading Hidden Scrolls...</div>;
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-white flex flex-col items-center p-6 font-sans">
-      
-      {/* Top Header */}
-      <div className="w-full max-w-md flex justify-between items-center mb-10">
-        <button onClick={() => navigate('/')} className="flex flex-col items-center gap-1 group">
-          <div className="bg-slate-800/50 p-3 rounded-xl group-active:scale-95 transition-transform">
-            <span className="text-xl">←</span>
-          </div>
-          <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400">Library</span>
-        </button>
-
-        <button 
-          onClick={() => setBluetoothMode(!bluetoothMode)}
-          className="flex flex-col items-center gap-1"
-        >
-          <div className={`p-3 rounded-xl transition-all ${bluetoothMode ? 'bg-emerald-500/20 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]' : 'bg-slate-800/50 text-slate-400'}`}>
-            <span className="text-sm font-bold">{bluetoothMode ? 'ON' : 'OFF'}</span>
-          </div>
-          <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400">Bluetooth</span>
-        </button>
+    <div className="min-h-screen bg-[#0f172a] text-white flex flex-col items-center p-6">
+      <div className="w-full max-w-md flex justify-between mb-10">
+        <button onClick={() => navigate('/')} className="bg-slate-800/50 p-3 rounded-xl">←</button>
+        <button onClick={() => setBluetoothMode(!bluetoothMode)} className={`p-3 rounded-xl ${bluetoothMode ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800/50'}`}>BT {bluetoothMode ? 'ON' : 'OFF'}</button>
       </div>
 
       <audio ref={silentRef} src={SILENT_AUDIO_SRC} loop />
 
-      <div className="w-full max-w-md flex flex-col items-center">
-        <div className="aspect-[2/3] w-64 bg-slate-800 rounded-3xl shadow-2xl mb-8 overflow-hidden border border-slate-700/50">
-          <img src={getProxyUrl(`/api/items/${id}/cover`)} className="w-full h-full object-cover" />
+      <div className="aspect-[2/3] w-64 bg-slate-800 rounded-3xl shadow-2xl mb-8 overflow-hidden border border-slate-700/50">
+        <img src={getProxyUrl(`/api/items/${id}/cover`)} className="w-full h-full object-cover" />
+      </div>
+
+      <div className="w-full max-w-md bg-slate-800/40 backdrop-blur-md p-8 rounded-[40px] border border-white/5">
+        <div className="flex justify-between items-center mb-8">
+          <button onClick={() => audioRef.current.currentTime -= 15} className="w-16 h-16 rounded-full border-2 border-cyan-400/30 text-cyan-400">↺</button>
+          <button onClick={cycleSleep} className="flex flex-col items-center">
+            <div className={`w-12 h-12 flex items-center justify-center rounded-full ${sleepTimer ? 'bg-orange-500' : 'bg-slate-700/50'}`}>⏲</div>
+            <span className="text-[10px] font-bold mt-1">{sleepTimer ? (sleepTimer >= 60 ? `${sleepTimer/60}h` : `${sleepTimer}m`) : 'SLEEP'}</span>
+          </button>
+          <button onClick={() => audioRef.current.currentTime += 30} className="w-16 h-16 rounded-full border-2 border-cyan-400/30 text-cyan-400">↻</button>
         </div>
 
-        {/* Control Card */}
-        <div className="w-full bg-slate-800/40 backdrop-blur-md p-8 rounded-[40px] shadow-xl mb-8 border border-white/5">
-            
-            <div className="flex justify-between items-center mb-8">
-                <button 
-                  onClick={() => {if(audioRef.current) audioRef.current.currentTime -= 15}} 
-                  className="w-16 h-16 rounded-full border-2 border-cyan-400/30 flex items-center justify-center active:bg-cyan-400/10 transition-colors"
-                >
-                  <span className="text-2xl text-cyan-400">↺</span>
-                </button>
-
-                {/* Updated Sleep Timer Button */}
-                <button 
-                    onClick={cycleSleepTimer}
-                    className="flex flex-col items-center gap-1"
-                >
-                    <div className={`w-12 h-12 flex items-center justify-center rounded-full transition-all ${sleepTimer ? 'bg-orange-500 shadow-[0_0_20px_rgba(249,115,22,0.4)]' : 'bg-slate-700/50'}`}>
-                        <span className="text-lg">⏲</span>
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
-                      {sleepTimer ? (sleepTimer >= 60 ? `${sleepTimer/60}h` : `${sleepTimer}m`) : 'Sleep'}
-                    </span>
-                </button>
-
-                <button 
-                  onClick={() => {if(audioRef.current) audioRef.current.currentTime += 30}} 
-                  className="w-16 h-16 rounded-full border-2 border-cyan-400/30 flex items-center justify-center active:bg-cyan-400/10 transition-colors"
-                >
-                  <span className="text-2xl text-cyan-400">↻</span>
-                </button>
-            </div>
-
-            <div className="flex justify-between px-2 mb-2 text-[12px] font-mono text-slate-400">
-                <span>{formatTime(currentTime)}</span>
-                <span>-{formatTime(duration - currentTime)}</span>
-            </div>
-            
-            <audio 
-              ref={audioRef} 
-              controls 
-              key={sessionId || 'loading'} 
-              className="w-full h-10 invert-[.9] opacity-80"
-              onPlaying={handlePlayUnlock}
-              onLoadedMetadata={(e) => setDuration(e.target.duration)}
-              onTimeUpdate={(e) => {
-                const audio = audioRef.current;
-                if (!audio) return;
-                setCurrentTime(audio.currentTime);
-                if (seekApplied.current && audio.currentTime > 1) {
-                  localStorage.setItem(`progress_${id}`, audio.currentTime);
-                }
-              }}
-              preload="auto" 
-              playsInline 
-            >
-              {audioUrl && <source src={audioUrl} type="audio/mp4" />}
-            </audio>
+        <div className="flex justify-between px-2 mb-2 text-[12px] font-mono text-slate-400">
+          <span>{formatTime(currentTime)}</span>
+          <span>-{formatTime(duration - currentTime)}</span>
         </div>
-
-        {/* Chapters Section */}
-        <div className="w-full max-w-md">
-          <div className="bg-slate-800/30 rounded-[30px] divide-y divide-white/5 max-h-52 overflow-y-auto border border-white/5">
-            {book.media?.chapters?.map((c, i) => (
-              <button 
-                key={i} 
-                onClick={() => { if(audioRef.current) { audioRef.current.currentTime = c.start; audioRef.current.play(); seekApplied.current = true; } }} 
-                className="w-full p-5 hover:bg-white/5 flex justify-between items-center text-left"
-              >
-                <span className="text-sm font-medium text-slate-300 truncate pr-4">{c.title || `Chapter ${i + 1}`}</span>
-                <span className="text-slate-500 font-mono text-[10px] shrink-0">{formatTime(c.start)}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+        
+        <audio 
+          ref={audioRef} controls key={sessionId || 'loading'} 
+          className="w-full h-10 invert-[.9]" 
+          onPlaying={handlePlay}
+          onLoadedMetadata={(e) => setDuration(e.target.duration)}
+          onTimeUpdate={(e) => {
+            setCurrentTime(e.target.currentTime);
+            if (seekApplied.current && e.target.currentTime > 1) {
+              localStorage.setItem(`progress_${id}`, e.target.currentTime);
+            }
+          }}
+        >
+          {sessionId && <source src={getProxyUrl(`/public/session/${sessionId}/track/1`)} type="audio/mp4" />}
+        </audio>
       </div>
     </div>
   );

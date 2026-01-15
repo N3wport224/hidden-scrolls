@@ -1,19 +1,19 @@
-// client/src/lib/api.js
 import { ABS_BASE_URL } from '../config';
 
 export const getProxyUrl = (path) => {
+  // Directs requests through your Node.js server (Port 3000)
   return `http://100.81.193.52:3000/api/proxy?path=${encodeURIComponent(path)}`;
 };
 
-// ADD THIS EXPORTED FUNCTION
 export async function fetchLibrary() {
   try {
     const response = await fetch(getProxyUrl('/api/libraries'));
     const data = await response.json();
     
-    // Support different ABS API response formats
+    // Audiobookshelf can return libraries as an array or a nested object
     const libraries = data.libraries || data;
     const libraryId = libraries[0]?.id;
+    
     if (!libraryId) return [];
 
     const itemsResponse = await fetch(getProxyUrl(`/api/libraries/${libraryId}/items`));
@@ -21,7 +21,7 @@ export async function fetchLibrary() {
     
     return itemsData.results || [];
   } catch (error) {
-    console.error("Failed to fetch library:", error);
+    console.error("❌ Library Fetch Error:", error);
     return [];
   }
 }
