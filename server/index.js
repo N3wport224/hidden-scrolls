@@ -44,12 +44,12 @@ app.get('/api/items/:id', async (req, res) => {
   const ABS_URL = `http://localhost:13378/api/items/${req.params.id}`;
   try {
     const response = await fetch(ABS_URL, {
-      headers: { 'Authorization': `Bearer ${process.env.ABS_API_TOKEN}` }
+      headers: { 'Authorization': `Bearer ${process.env.ABS_API_TOKEN}` } //
     });
     const data = await response.json();
     res.json(data);
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch item" });
+    res.status(500).json({ error: "Server Proxy Error" });
   }
 });
 

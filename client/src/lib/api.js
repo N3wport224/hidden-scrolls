@@ -15,7 +15,8 @@ export async function fetchLibrary() {
 }
 
 export async function fetchBookDetails(id) {
-  // Hits the specific route we added to index.js
+  // We hit your server's custom item route
   const response = await fetch(`http://100.81.193.52:3000/api/items/${id}`);
+  if (!response.ok) return { error: true };
   return await response.json();
 }
