@@ -15,7 +15,7 @@ export async function fetchLibrary() {
 }
 
 export async function fetchBookDetails(id) {
-  // Only one declaration here to fix the build failure
+  // Routing through the proxy adds the ABS_API_TOKEN from the server
   const response = await fetch(getProxyUrl(`/api/items/${id}`));
   if (!response.ok) return null;
   return await response.json();
