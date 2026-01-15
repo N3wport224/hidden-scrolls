@@ -1,4 +1,5 @@
 export const getProxyUrl = (path) => {
+  // Uses your Tailscale IP and Port 3000
   return `http://100.81.193.52:3000/api/proxy?path=${encodeURIComponent(path)}`;
 };
 
@@ -8,6 +9,7 @@ export async function fetchLibrary() {
   const libraries = data.libraries || data;
   const libId = libraries[0]?.id;
   if (!libId) return [];
+
   const itemsRes = await fetch(getProxyUrl(`/api/libraries/${libId}/items`));
   const itemsData = await itemsRes.json();
   return itemsData.results || [];
@@ -15,5 +17,6 @@ export async function fetchLibrary() {
 
 export async function fetchBookDetails(id) {
   const response = await fetch(getProxyUrl(`/api/items/${id}`));
+  if (!response.ok) return null;
   return await response.json();
 }

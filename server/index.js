@@ -11,8 +11,8 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
 /**
- * UNIFIED PROXY
- * This route handles ALL requests to ABS, including the media file.
+ * UNIFIED STREAMING PROXY
+ * This route handles ALL requests (Metadata, Covers, and Audio Files).
  */
 app.get('/api/proxy', async (req, res) => {
   const { path: apiPath } = req.query;
@@ -28,7 +28,7 @@ app.get('/api/proxy', async (req, res) => {
     const contentType = response.headers.get('content-type');
     res.setHeader('Content-Type', contentType);
 
-    // Stream binary data directly to the browser to fix the 404/playback error
+    // Stream binary data directly to fix the 404/playback error
     const reader = response.body.getReader();
     function push() {
       reader.read().then(({ done, value }) => {
@@ -42,6 +42,7 @@ app.get('/api/proxy', async (req, res) => {
     }
     push();
   } catch (error) {
+    console.error("Proxy Error:", error);
     res.status(500).json({ error: "Streaming Proxy Failed" });
   }
 });

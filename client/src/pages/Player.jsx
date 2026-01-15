@@ -32,12 +32,12 @@ export default function Player() {
 
   const formatTime = (s) => isNaN(s) ? "0:00:00" : new Date(s * 1000).toISOString().substr(11, 8);
 
-  if (!book) return <div className="min-h-screen bg-[#0f172a] text-cyan-400 flex items-center justify-center font-bold italic">LOADING HIDDEN SCROLL...</div>;
+  if (!book) return <div className="min-h-screen bg-[#0f172a] text-cyan-400 flex items-center justify-center font-bold">LOADING...</div>;
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-white flex flex-col items-center p-6">
       <div className="w-full max-w-md flex justify-between mb-10">
-        <button onClick={() => navigate('/')} className="bg-slate-800/50 p-3 rounded-xl active:scale-90 transition-transform">←</button>
+        <button onClick={() => navigate('/')} className="bg-slate-800/50 p-3 rounded-xl active:scale-90">←</button>
         <button 
           onClick={() => setBluetoothMode(!bluetoothMode)} 
           className={`px-4 py-2 rounded-xl text-[10px] font-bold transition-all ${bluetoothMode ? 'bg-emerald-500 text-white shadow-lg' : 'bg-slate-800/50 text-slate-400'}`}
@@ -59,9 +59,7 @@ export default function Player() {
         <div className="flex justify-between items-center mb-8">
           <button onClick={() => audioRef.current.currentTime -= 15} className="w-16 h-16 rounded-full border-2 border-cyan-400/30 text-cyan-400 flex items-center justify-center active:bg-cyan-400/10 transition-colors text-xl">↺</button>
           <button onClick={cycleSleep} className="flex flex-col items-center">
-            <div className={`w-12 h-12 flex items-center justify-center rounded-full transition-all ${sleepTimer ? 'bg-orange-500 shadow-lg' : 'bg-slate-700/50'}`}>
-              <span className="text-xl">⏲</span>
-            </div>
+            <div className={`w-12 h-12 flex items-center justify-center rounded-full transition-all ${sleepTimer ? 'bg-orange-500 shadow-lg' : 'bg-slate-700/50'}`}>⏲</div>
             <span className="text-[9px] font-bold mt-2 text-slate-400 uppercase">{sleepTimer ? `${sleepTimer}m` : 'Sleep'}</span>
           </button>
           <button onClick={() => audioRef.current.currentTime += 30} className="w-16 h-16 rounded-full border-2 border-cyan-400/30 text-cyan-400 flex items-center justify-center active:bg-cyan-400/10 transition-colors text-xl">↻</button>
@@ -84,10 +82,10 @@ export default function Player() {
           src={getProxyUrl(`/api/items/${id}/file`)} 
         />
 
-        {/* CHAPTERS DROPDOWN: Moved below player as requested */}
+        {/* CHAPTERS DROPDOWN: Positioned below the media player */}
         {book.media?.chapters?.length > 0 && (
           <select 
-            className="w-full bg-slate-900/50 border border-white/10 rounded-xl p-3 text-xs text-cyan-400 outline-none active:border-cyan-400 transition-all appearance-none text-center"
+            className="w-full bg-slate-900/50 border border-white/10 rounded-xl p-3 text-xs text-cyan-400 outline-none active:border-cyan-400 transition-all text-center appearance-none"
             onChange={(e) => audioRef.current.currentTime = parseFloat(e.target.value)}
           >
             <option>SELECT CHAPTER ({book.media.chapters.length})</option>
