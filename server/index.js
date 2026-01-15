@@ -10,10 +10,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
-/**
- * UNIFIED STREAMING PROXY
- * Pipes binary data directly from ABS to fix 404 errors
- */
 app.get('/api/proxy', async (req, res) => {
   const { path: apiPath } = req.query;
   const ABS_URL = `http://localhost:13378${decodeURIComponent(apiPath)}`;
@@ -31,7 +27,7 @@ app.get('/api/proxy', async (req, res) => {
     const contentType = response.headers.get('content-type');
     res.setHeader('Content-Type', contentType);
 
-    // Stream the binary data directly to resolve playback errors
+    // Stream binary data directly to the client to fix playback 404s
     const reader = response.body.getReader();
     function push() {
       reader.read().then(({ done, value }) => {
@@ -50,4 +46,4 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
 
-app.listen(PORT, () => console.log(`🚀 Diagnostic Engine active on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Car Mode active on port ${PORT}`));

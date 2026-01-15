@@ -17,7 +17,7 @@ export default function Player() {
 
   const formatTime = (s) => isNaN(s) ? "0:00:00" : new Date(s * 1000).toISOString().substr(11, 8);
 
-  if (!book) return <div className="min-h-screen bg-[#0f172a] text-cyan-400 flex items-center justify-center font-bold italic">RESTORING SCROLL...</div>;
+  if (!book) return <div className="min-h-screen bg-[#0f172a] text-cyan-400 flex items-center justify-center font-bold">LOADING...</div>;
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-white flex flex-col items-center p-6 text-center">
@@ -31,11 +31,6 @@ export default function Player() {
         <h2 className="text-lg font-bold truncate mb-1 uppercase tracking-tight">{book.media?.metadata?.title}</h2>
         <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-8 italic">{book.media?.metadata?.authorName}</p>
 
-        <div className="flex justify-between px-2 mb-2 text-[12px] font-mono text-slate-500">
-          <span>{formatTime(currentTime)}</span>
-          <span>-{formatTime(duration - currentTime)}</span>
-        </div>
-        
         <audio 
           ref={audioRef} controls className="w-full h-10 invert-[.9] opacity-80 mb-6"
           onLoadedMetadata={(e) => setDuration(e.target.duration)}
