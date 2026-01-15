@@ -12,7 +12,7 @@ app.use(express.static(path.join(__dirname, '../client/dist')));
 
 /**
  * UNIFIED STREAMING PROXY
- * Handles all requests (Metadata, Covers, and the Audio Binary).
+ * Fixed to handle binary audio streams correctly
  */
 app.get('/api/proxy', async (req, res) => {
   const { path: apiPath } = req.query;
@@ -20,7 +20,10 @@ app.get('/api/proxy', async (req, res) => {
 
   try {
     const response = await fetch(ABS_URL, {
-      headers: { 'Authorization': `Bearer ${process.env.ABS_API_TOKEN}` }
+      headers: { 
+        'Authorization': `Bearer ${process.env.ABS_API_TOKEN}`, //
+        'Content-Type': 'application/json'
+      }
     });
 
     if (!response.ok) return res.status(response.status).send("ABS Source Error");
@@ -28,7 +31,7 @@ app.get('/api/proxy', async (req, res) => {
     const contentType = response.headers.get('content-type');
     res.setHeader('Content-Type', contentType);
 
-    // Stream the binary data directly to the client to fix the 404 error
+    // Stream binary data directly to the client to fix the 404 error
     const reader = response.body.getReader();
     function push() {
       reader.read().then(({ done, value }) => {
@@ -42,8 +45,8 @@ app.get('/api/proxy', async (req, res) => {
     }
     push();
   } catch (error) {
-    console.error("Proxy Error:", error);
-    res.status(500).json({ error: "Streaming Proxy Failed" });
+    console.error("Streaming Proxy Error:", error);
+    res.status(500).json({ error: "Failed to stream content" });
   }
 });
 
@@ -51,4 +54,4 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
 
-app.listen(PORT, () => console.log(`🚀 Car Mode active on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Car Mode Engine active on port ${PORT}`));

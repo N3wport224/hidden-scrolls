@@ -19,9 +19,3 @@ export async function fetchBookDetails(id) {
   if (!response.ok) return null;
   return await response.json();
 }
-
-export async function fetchBookDetails(id) {
-  const response = await fetch(getProxyUrl(`/api/items/${id}`));
-  if (!response.ok) return null;
-  return await response.json();
-}
