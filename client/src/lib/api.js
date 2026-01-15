@@ -14,7 +14,7 @@ export async function fetchLibrary() {
   return itemsData.results || [];
 }
 
-// Fixed: Only one declaration allowed to resolve build failure
+// FIXED: This function is now declared only ONCE
 export async function fetchBookDetails(id) {
   const response = await fetch(getProxyUrl(`/api/items/${id}`));
   if (!response.ok) return null;
