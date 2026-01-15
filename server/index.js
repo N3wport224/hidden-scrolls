@@ -12,7 +12,7 @@ app.use(express.json());
 // Serve static files from React build
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
-// API PROXY: Handles generic library requests
+// API PROXY: Handles all communication with Audiobookshelf
 app.get('/api/proxy', async (req, res) => {
   const { path: apiPath } = req.query;
   const ABS_URL = `http://localhost:13378${decodeURIComponent(apiPath)}`;
@@ -20,7 +20,7 @@ app.get('/api/proxy', async (req, res) => {
   try {
     const response = await fetch(ABS_URL, {
       headers: { 
-        'Authorization': `Bearer ${process.env.ABS_API_TOKEN}`,
+        'Authorization': `Bearer ${process.env.ABS_API_TOKEN}`, //
         'Content-Type': 'application/json'
       }
     });
@@ -35,27 +35,14 @@ app.get('/api/proxy', async (req, res) => {
       res.send(Buffer.from(buffer));
     }
   } catch (error) {
+    console.error("Proxy Error:", error);
     res.status(500).json({ error: "ABS Connection Failed" });
   }
 });
 
-// ITEM ROUTE: Specifically for individual book details
-app.get('/api/items/:id', async (req, res) => {
-  const ABS_URL = `http://localhost:13378/api/items/${req.params.id}`;
-  try {
-    const response = await fetch(ABS_URL, {
-      headers: { 'Authorization': `Bearer ${process.env.ABS_API_TOKEN}` } //
-    });
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    res.status(500).json({ error: "Server Proxy Error" });
-  }
-});
-
-// React Catch-all
+// React Catch-all: Keeps the page from breaking on refresh
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
 
-app.listen(PORT, () => console.log(`🚀 Car Engine active on ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Car Engine active on port ${PORT}`));

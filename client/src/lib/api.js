@@ -15,7 +15,7 @@ export async function fetchLibrary() {
 }
 
 export async function fetchBookDetails(id) {
-  // Use the proxy route instead of the direct items route
+  // Routing through the proxy ensures headers/tokens are added by the server
   const response = await fetch(getProxyUrl(`/api/items/${id}`));
   if (!response.ok) return { error: true };
   return await response.json();
