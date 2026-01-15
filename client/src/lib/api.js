@@ -14,7 +14,7 @@ export async function fetchLibrary() {
   return itemsData.results || [];
 }
 
-// FIXED: This function is now declared only ONCE
+// FIXED: This is now the ONLY declaration of this function
 export async function fetchBookDetails(id) {
   const response = await fetch(getProxyUrl(`/api/items/${id}`));
   if (!response.ok) return null;
