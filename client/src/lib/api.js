@@ -14,8 +14,8 @@ export async function fetchLibrary() {
   return itemsData.results || [];
 }
 
+// Fixed: Only one declaration of fetchBookDetails allowed
 export async function fetchBookDetails(id) {
-  // Only one declaration here now to fix the build crash
   const response = await fetch(getProxyUrl(`/api/items/${id}`));
   if (!response.ok) return null;
   return await response.json();
