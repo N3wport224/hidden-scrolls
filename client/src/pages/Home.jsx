@@ -10,51 +10,29 @@ export default function Home() {
     fetchLibrary().then(setBooks);
   }, []);
 
-  const sortedBooks = [...books].sort((a, b) => {
-    const valA = sortBy === 'title' 
-      ? (a.media?.metadata?.title || '').toLowerCase() 
-      : (a.media?.metadata?.authorName || '').toLowerCase();
-    
-    const valB = sortBy === 'title' 
-      ? (b.media?.metadata?.title || '').toLowerCase() 
-      : (b.media?.metadata?.authorName || '').toLowerCase();
-
+  const sorted = [...books].sort((a, b) => {
+    const field = sortBy === 'title' ? 'title' : 'authorName';
+    const valA = (a.media?.metadata?.[field] || '').toLowerCase();
+    const valB = (b.media?.metadata?.[field] || '').toLowerCase();
     return valA.localeCompare(valB);
   });
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-white p-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-4">
-          <h1 className="text-4xl font-black tracking-tighter text-cyan-400 italic">HIDDEN SCROLLS</h1>
-          
-          <div className="flex bg-slate-800/50 p-1 rounded-xl border border-white/5">
-            <button 
-              onClick={() => setSortBy('title')}
-              className={`px-4 py-2 rounded-lg text-[10px] font-bold transition-all ${sortBy === 'title' ? 'bg-cyan-500 text-white' : 'text-slate-400'}`}
-            >
-              SORT BY TITLE
-            </button>
-            <button 
-              onClick={() => setSortBy('author')}
-              className={`px-4 py-2 rounded-lg text-[10px] font-bold transition-all ${sortBy === 'author' ? 'bg-cyan-500 text-white' : 'text-slate-400'}`}
-            >
-              SORT BY AUTHOR
-            </button>
-          </div>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-black text-cyan-400 italic">HIDDEN SCROLLS</h1>
+        <div className="flex bg-slate-800 p-1 rounded-lg">
+          <button onClick={() => setSortBy('title')} className={`px-3 py-1 rounded text-[10px] ${sortBy === 'title' ? 'bg-cyan-500' : ''}`}>TITLE</button>
+          <button onClick={() => setSortBy('author')} className={`px-3 py-1 rounded text-[10px] ${sortBy === 'author' ? 'bg-cyan-500' : ''}`}>AUTHOR</button>
         </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-          {sortedBooks.map((book) => (
-            <Link to={`/player/${book.id}`} key={book.id} className="group flex flex-col items-center text-center">
-              <div className="aspect-[2/3] w-full bg-slate-800 rounded-2xl overflow-hidden mb-3 shadow-xl border border-white/5 group-hover:border-cyan-500/50 transition-all">
-                <img src={getProxyUrl(`/api/items/${book.id}/cover`)} className="w-full h-full object-cover" />
-              </div>
-              <h3 className="text-sm font-bold truncate w-full px-1">{book.media?.metadata?.title}</h3>
-              <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">{book.media?.metadata?.authorName || 'Unknown'}</p>
-            </Link>
-          ))}
-        </div>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+        {sorted.map(b => (
+          <Link to={`/player/${b.id}`} key={b.id} className="text-center">
+            <img src={getProxyUrl(`/api/items/${b.id}/cover`)} className="rounded-xl aspect-[2/3] object-cover mb-2 border border-white/10" />
+            <p className="text-xs font-bold truncate">{b.media?.metadata?.title}</p>
+          </Link>
+        ))}
       </div>
     </div>
   );

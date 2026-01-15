@@ -1,32 +1,21 @@
-import { ABS_BASE_URL } from '../config';
-
 export const getProxyUrl = (path) => {
-  // Directs requests through your Node.js server (Port 3000)
   return `http://100.81.193.52:3000/api/proxy?path=${encodeURIComponent(path)}`;
 };
 
 export async function fetchLibrary() {
-  try {
-    const response = await fetch(getProxyUrl('/api/libraries'));
-    const data = await response.json();
-    
-    // Audiobookshelf can return libraries as an array or a nested object
-    const libraries = data.libraries || data;
-    const libraryId = libraries[0]?.id;
-    
-    if (!libraryId) return [];
+  const response = await fetch(getProxyUrl('/api/libraries'));
+  const data = await response.json();
+  const libraries = data.libraries || data;
+  const libId = libraries[0]?.id;
+  if (!libId) return [];
 
-    const itemsResponse = await fetch(getProxyUrl(`/api/libraries/${libraryId}/items`));
-    const itemsData = await itemsResponse.json();
-    
-    return itemsData.results || [];
-  } catch (error) {
-    console.error("❌ Library Fetch Error:", error);
-    return [];
-  }
+  const itemsRes = await fetch(getProxyUrl(`/api/libraries/${libId}/items`));
+  const itemsData = await itemsRes.json();
+  return itemsData.results || [];
 }
 
 export async function fetchBookDetails(id) {
-  const response = await fetch(getProxyUrl(`/api/items/${id}`));
+  // Hits the specific route we added to index.js
+  const response = await fetch(`http://100.81.193.52:3000/api/items/${id}`);
   return await response.json();
 }
