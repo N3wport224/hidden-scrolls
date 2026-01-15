@@ -19,12 +19,14 @@ app.get('/api/proxy', async (req, res) => {
       headers: { 'Authorization': `Bearer ${process.env.ABS_API_TOKEN}` }
     });
 
-    if (!response.ok) return res.status(response.status).send("ABS Source Error");
+    if (!response.ok) {
+      console.error(`ABS Source Failed: ${response.status} at ${ABS_URL}`);
+      return res.status(response.status).send("ABS Source Error");
+    }
 
     const contentType = response.headers.get('content-type');
     res.setHeader('Content-Type', contentType);
 
-    // Stream binary data directly to fix playback 404s
     const reader = response.body.getReader();
     function push() {
       reader.read().then(({ done, value }) => {
@@ -35,6 +37,7 @@ app.get('/api/proxy', async (req, res) => {
     }
     push();
   } catch (error) {
+    console.error("Proxy Runtime Error:", error);
     res.status(500).json({ error: "Streaming Failed" });
   }
 });
@@ -43,4 +46,4 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
 
-app.listen(PORT, () => console.log(`🚀 Engine active on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Debugging active on port ${PORT}`));
