@@ -11,7 +11,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
 /**
- * UNIFIED STREAMING PROXY
+ * STREAMING PROXY
  * Fixed to handle binary audio streams correctly
  */
 app.get('/api/proxy', async (req, res) => {
@@ -45,8 +45,8 @@ app.get('/api/proxy', async (req, res) => {
     }
     push();
   } catch (error) {
-    console.error("Streaming Proxy Error:", error);
-    res.status(500).json({ error: "Failed to stream content" });
+    console.error("Proxy Error:", error);
+    res.status(500).json({ error: "Streaming Failed" });
   }
 });
 
