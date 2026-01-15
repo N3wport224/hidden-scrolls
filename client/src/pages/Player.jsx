@@ -82,17 +82,18 @@ export default function Player() {
           <span>-{formatTime(duration - currentTime)}</span>
         </div>
         
-        <audio 
+       <audio 
           ref={audioRef} 
           controls 
           className="w-full h-10 invert-[.9] opacity-80"
+          onTimeUpdate={(e) => setCurrentTime(e.target.currentTime)}
           onLoadedMetadata={(e) => setDuration(e.target.duration)}
-          onTimeUpdate={(e) => {
-            setCurrentTime(e.target.currentTime);
-            localStorage.setItem(`progress_${id}`, e.target.currentTime);
-          }}
-          src={getProxyUrl(`/api/items/${id}/file`)} 
+          // Hit the dedicated server route for the file
+          src={`http://100.81.193.52:3000/api/items/${id}/file`} 
         />
+    // ...
+  );
+}
       </div>
     </div>
   );

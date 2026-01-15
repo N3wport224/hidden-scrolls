@@ -8,54 +8,48 @@ const PORT = 3000;
 
 app.use(cors());
 app.use(express.json());
-
-// Serve static files from React build
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
-/**
- * STREAMING API PROXY
- * Fixed to handle binary audio streams correctly
- */
+// GENERIC PROXY: For metadata and covers
 app.get('/api/proxy', async (req, res) => {
   const { path: apiPath } = req.query;
   const ABS_URL = `http://localhost:13378${decodeURIComponent(apiPath)}`;
-
   try {
     const response = await fetch(ABS_URL, {
-      headers: { 
-        'Authorization': `Bearer ${process.env.ABS_API_TOKEN}`, //
-        'Content-Type': 'application/json'
-      }
+      headers: { 'Authorization': `Bearer ${process.env.ABS_API_TOKEN}` }
     });
-
-    if (!response.ok) return res.status(response.status).json({ error: "Source Error" });
-
-    // Set correct headers for images and audio
     const contentType = response.headers.get('content-type');
-    res.setHeader('Content-Type', contentType);
+    res.set('Content-Type', contentType);
+    const buffer = await response.arrayBuffer();
+    res.send(Buffer.from(buffer));
+  } catch (err) { res.status(500).send("Proxy Error"); }
+});
 
-    // Stream the data directly to the client to fix playback errors
+// FILE PROXY: Specifically for streaming the audio file
+app.get('/api/items/:id/file', async (req, res) => {
+  const ABS_URL = `http://localhost:13378/api/items/${req.params.id}/file`;
+  try {
+    const response = await fetch(ABS_URL, {
+      headers: { 'Authorization': `Bearer ${process.env.ABS_API_TOKEN}` }
+    });
+    
+    // Pipe the stream directly to the browser
+    const contentType = response.headers.get('content-type');
+    res.set('Content-Type', contentType);
     const reader = response.body.getReader();
     function push() {
       reader.read().then(({ done, value }) => {
-        if (done) {
-          res.end();
-          return;
-        }
+        if (done) { res.end(); return; }
         res.write(value);
         push();
       });
     }
     push();
-  } catch (error) {
-    console.error("Streaming Proxy Error:", error);
-    res.status(500).json({ error: "Failed to stream content" });
-  }
+  } catch (err) { res.status(500).send("Stream Error"); }
 });
 
-// React Catch-all
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
 
-app.listen(PORT, () => console.log(`🚀 Car Mode Engine active on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Engine active on ${PORT}`));
