@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const http = require('http'); // Native Node HTTP module
+const http = require('http'); // Native Node module
 require('dotenv').config();
 
 const app = express();
@@ -11,14 +11,15 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
-// NATIVE STREAMING PROXY (Node 18 Compatible)
+/**
+ * NATIVE STREAMING PROXY
+ * Uses http.request for maximum stability with large audio files
+ */
 app.get('/api/proxy', (req, res) => {
   const { path: apiPath } = req.query;
-  // Hardcoded for your Pi setup to ensure stability
-  const ABS_HOST = 'localhost'; 
+  const ABS_HOST = 'localhost';
   const ABS_PORT = 13378;
 
-  // Configure the upstream request options
   const options = {
     hostname: ABS_HOST,
     port: ABS_PORT,
@@ -29,25 +30,22 @@ app.get('/api/proxy', (req, res) => {
     }
   };
 
-  // Forward the Range header if the browser sent one (Crucial for scrubbing)
+  // Forward Range header if browser sent one (Crucial for scrubbing)
   if (req.headers.range) {
     options.headers['Range'] = req.headers.range;
   }
 
-  console.log(`[Proxy] Piping: ${options.path}`);
-
-  // Create the native request
   const proxyReq = http.request(options, (proxyRes) => {
     // Forward the status code (200, 206, 404, etc.)
     res.status(proxyRes.statusCode);
 
-    // Forward relevant headers (Content-Type, Length, Ranges)
+    // Forward relevant media headers
     const forwardHeaders = ['content-type', 'content-length', 'accept-ranges', 'content-range'];
     forwardHeaders.forEach(h => {
       if (proxyRes.headers[h]) res.setHeader(h, proxyRes.headers[h]);
     });
 
-    // Pipe the binary stream directly to the browser
+    // Pipe the raw binary stream directly to the browser
     proxyRes.pipe(res, { end: true });
   });
 
@@ -63,4 +61,4 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
 
-app.listen(PORT, () => console.log(`🚀 Bulletproof Engine active on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Bulletproof Proxy active on port ${PORT}`));
