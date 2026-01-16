@@ -14,7 +14,6 @@ export async function fetchLibrary() {
   return itemsData.results || [];
 }
 
-// FIXED: This is now the ONLY declaration of this function to fix the build crash
 export async function fetchBookDetails(id) {
   const response = await fetch(getProxyUrl(`/api/items/${id}`));
   if (!response.ok) return null;

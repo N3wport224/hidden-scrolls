@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const http = require('http'); // Native Node HTTP module
 require('dotenv').config();
 
 const app = express();
@@ -10,54 +11,55 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
-// ENHANCED STREAMING PROXY
-app.get('/api/proxy', async (req, res) => {
+// NATIVE STREAMING PROXY (Node 18 Compatible)
+app.get('/api/proxy', (req, res) => {
   const { path: apiPath } = req.query;
-  const ABS_URL = `http://localhost:13378${decodeURIComponent(apiPath)}`;
+  const ABS_HOST = 'localhost';
+  const ABS_PORT = 13378;
 
-  // Forward the Range header (Critical for Audio Playback)
-  const headers = { 
-    'Authorization': `Bearer ${process.env.ABS_API_TOKEN}` 
+  // Configure the upstream request options
+  const options = {
+    hostname: ABS_HOST,
+    port: ABS_PORT,
+    path: decodeURIComponent(apiPath),
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${process.env.ABS_API_TOKEN}`
+    }
   };
+
+  // Forward the Range header if the browser sent one (Crucial for scrubbing)
   if (req.headers.range) {
-    headers['Range'] = req.headers.range;
+    options.headers['Range'] = req.headers.range;
   }
 
-  try {
-    const response = await fetch(ABS_URL, { headers });
+  console.log(`[Proxy] Piping: ${options.path}`);
 
-    if (!response.ok) {
-      console.error(`[Proxy Error] ${response.status} at ${ABS_URL}`);
-      return res.status(response.status).send("ABS Source Error");
-    }
+  // Create the native request
+  const proxyReq = http.request(options, (proxyRes) => {
+    // Forward the status code (200, 206, 404, etc.)
+    res.status(proxyRes.statusCode);
 
-    // Forward critical response headers to the browser
+    // Forward relevant headers (Content-Type, Length, Ranges)
     const forwardHeaders = ['content-type', 'content-length', 'accept-ranges', 'content-range'];
     forwardHeaders.forEach(h => {
-      if (response.headers.has(h)) res.setHeader(h, response.headers.get(h));
+      if (proxyRes.headers[h]) res.setHeader(h, proxyRes.headers[h]);
     });
 
-    // Send the correct status code (200 OK or 206 Partial Content)
-    res.status(response.status);
+    // Pipe the binary stream directly to the browser
+    proxyRes.pipe(res, { end: true });
+  });
 
-    // Pipe the binary stream
-    const reader = response.body.getReader();
-    async function push() {
-      const { done, value } = await reader.read();
-      if (done) { res.end(); return; }
-      res.write(value);
-      push();
-    }
-    push();
-    
-  } catch (error) {
-    console.error("Stream Failed:", error);
-    if (!res.headersSent) res.status(500).json({ error: "Stream Failed" });
-  }
+  proxyReq.on('error', (e) => {
+    console.error(`[Proxy Error] ${e.message}`);
+    if (!res.headersSent) res.status(500).send("Stream Error");
+  });
+
+  proxyReq.end();
 });
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
 
-app.listen(PORT, () => console.log(`🚀 Car Engine V2 active on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Bulletproof Engine active on port ${PORT}`));
