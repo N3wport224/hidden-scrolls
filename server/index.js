@@ -14,7 +14,8 @@ app.use(express.static(path.join(__dirname, '../client/dist')));
 // NATIVE STREAMING PROXY (Node 18 Compatible)
 app.get('/api/proxy', (req, res) => {
   const { path: apiPath } = req.query;
-  const ABS_HOST = 'localhost';
+  // Hardcoded for your Pi setup to ensure stability
+  const ABS_HOST = 'localhost'; 
   const ABS_PORT = 13378;
 
   // Configure the upstream request options
