@@ -20,7 +20,7 @@ app.get('/api/proxy', async (req, res) => {
   const base = (process.env.ABS_BASE_URL || 'http://100.81.193.52:13378').replace(/\/+$/, '');
   const subPath = decodeURIComponent(apiPath).replace(/^\/+/, '');
   
-  // MANDATORY: The /audiobookshelf/ folder identified in your source code
+  // MANDATORY: Folder detected in your ABS source
   const fullUrl = `${base}/audiobookshelf/${subPath}`;
 
   console.log(`[ENGINE] Handshaking: ${fullUrl}`);
@@ -29,17 +29,17 @@ app.get('/api/proxy', async (req, res) => {
     method: 'GET',
     headers: { 
       'Authorization': `Bearer ${process.env.ABS_API_TOKEN}`,
-      'Range': req.headers.range || '' // Critical for 206 Partial Content
+      'Range': req.headers.range || '' // Critical for Seeking
     }
   };
 
   const proxyReq = http.request(fullUrl, options, (proxyRes) => {
     // DIAGNOSTIC LOGGING
-    console.log(`[ABS Response]: ${proxyRes.statusCode}`);
+    console.log(`[ABS Status]: ${proxyRes.statusCode}`);
 
-    // If ABS blocks the stream with a 404, we log the internal reason
+    // If ABS blocks with 404, we alert the terminal
     if (proxyRes.statusCode === 404) {
-      console.error(`!! SESSION BLOCK: ABS requires an active Playback Session for this token !!`);
+      console.error(`!! SESSION BLOCK: ABS requires an active session for this token !!`);
     }
 
     res.status(proxyRes.statusCode);
@@ -48,13 +48,13 @@ app.get('/api/proxy', async (req, res) => {
       if (proxyRes.headers[h]) res.setHeader(h, proxyRes.headers[h]);
     });
 
-    // Pipe binary stream directly to minimize buffering lag
+    // Directly pipe binary to minimize lag
     proxyRes.pipe(res, { end: true });
   });
 
   proxyReq.on('error', (e) => {
     console.error(`[Network Error]: ${e.message}`);
-    if (!res.headersSent) res.status(500).send("ABS Connection Failed");
+    if (!res.headersSent) res.status(500).send("ABS Offline");
   });
 
   proxyReq.end();
