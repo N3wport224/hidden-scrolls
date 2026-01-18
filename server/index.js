@@ -18,7 +18,7 @@ app.get('/api/proxy', (req, res) => {
   const base = (process.env.ABS_BASE_URL || 'http://100.81.193.52:13378').replace(/\/+$/, '');
   const subPath = decodeURIComponent(apiPath).replace(/^\/+/, '');
   
-  // Create the corrected URL with the base path
+  // FIXED: Prepends the folder path found in your ABS source code
   const fullUrl = `${base}/audiobookshelf/${subPath}`;
 
   console.log(`\n--- DEBUGGER LOG ---`);
@@ -36,12 +36,7 @@ app.get('/api/proxy', (req, res) => {
 
   const proxyReq = http.get(fullUrl, options, (proxyRes) => {
     console.log(`[ABS Response]: ${proxyRes.statusCode}`);
-
-    // If we still get a 404, we log a warning about the Base Path
-    if (proxyRes.statusCode === 404) {
-      console.error(`!! STILL 404: Verify if ABS expects /audiobookshelf/ or just /`);
-    }
-
+    
     res.status(proxyRes.statusCode);
     const forwardHeaders = ['content-type', 'content-length', 'accept-ranges', 'content-range'];
     forwardHeaders.forEach(h => {
@@ -55,6 +50,8 @@ app.get('/api/proxy', (req, res) => {
     console.error(`[Proxy Connection Error]: ${e.message}`);
     if (!res.headersSent) res.status(500).send("ABS Connection Failed");
   });
+
+  proxyReq.end();
 });
 
 app.get('*', (req, res) => {
