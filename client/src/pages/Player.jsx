@@ -15,36 +15,37 @@ export default function Player() {
   const [duration, setDuration] = useState(0);
   const audioRef = useRef(null);
   const silentRef = useRef(null);
-  const isInitialLoad = useRef(true); // Flag to prevent looping
+  const isInitialLoad = useRef(true);
 
-  // Fetch Book Details
+  // 1. Fetch Book Details
   useEffect(() => {
     fetchBookDetails(id).then(data => {
       setBook(data);
     });
   }, [id]);
 
-  // Bluetooth Silence Logic
+  // 2. Bluetooth Active Mode
   useEffect(() => {
     if (silentRef.current) {
       bluetoothMode ? silentRef.current.play().catch(() => {}) : silentRef.current.pause();
     }
   }, [bluetoothMode]);
 
-  // RESUME LOGIC: Set time once the browser followed the backend redirect
+  // 3. Resume Seek Logic: Only seeks when the stream is ready
   const handleCanPlay = () => {
     if (isInitialLoad.current) {
       const savedTime = localStorage.getItem(`progress_${id}`);
       if (savedTime && audioRef.current) {
         audioRef.current.currentTime = parseFloat(savedTime);
-        console.log(`[RESUME] Successfully jumped to: ${savedTime}s`);
+        console.log(`[RESUME] Jumped to: ${savedTime}s`);
       }
       isInitialLoad.current = false;
     }
   };
 
+  // 4. Sleep Timer Cycle (Included 120m option)
   const cycleSleep = () => {
-    const opts = [null, 15, 30, 60, 90, 120]; // Added 120m option
+    const opts = [null, 15, 30, 60, 90, 120]; 
     const next = opts[(opts.indexOf(sleepTimer) + 1) % opts.length];
     setSleepTimer(next);
     if (next) {
@@ -99,7 +100,7 @@ export default function Player() {
           ref={audioRef} 
           controls 
           className="w-full h-10 invert-[.9] opacity-80 mb-6"
-          onCanPlay={handleCanPlay} // CRITICAL: Only seeks when stream is ready
+          onCanPlay={handleCanPlay} 
           onLoadedMetadata={(e) => setDuration(e.target.duration)}
           onTimeUpdate={(e) => {
             setCurrentTime(e.target.currentTime);
@@ -108,16 +109,26 @@ export default function Player() {
           src={getProxyUrl(`/api/items/${id}/play`)} 
         />
 
+        {/* Dynamic Chapter Dropdown: Shows current chapter name or Chapter 1 */}
         {book.media?.chapters?.length > 0 && (
-          <select 
-            className="w-full bg-slate-900/50 border border-white/10 rounded-xl p-3 text-xs text-cyan-400 text-center appearance-none"
-            onChange={(e) => audioRef.current.currentTime = parseFloat(e.target.value)}
-          >
-            <option>SELECT CHAPTER ({book.media.chapters.length})</option>
-            {book.media.chapters.map((chap, i) => (
-              <option key={i} value={chap.start}>{chap.title} ({formatTime(chap.start)})</option>
-            ))}
-          </select>
+          <div className="relative">
+            <select 
+              className="w-full bg-slate-900/50 border border-white/10 rounded-xl p-3 text-xs text-cyan-400 text-center appearance-none"
+              value={book.media.chapters.find(c => currentTime >= c.start && currentTime < c.end)?.start || book.media.chapters[0].start}
+              onChange={(e) => {
+                audioRef.current.currentTime = parseFloat(e.target.value);
+              }}
+            >
+              {book.media.chapters.map((chap, i) => (
+                <option key={i} value={chap.start}>
+                  {chap.title} ({formatTime(chap.start)})
+                </option>
+              ))}
+            </select>
+            <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-cyan-400/50 text-[8px]">
+              ▼
+            </div>
+          </div>
         )}
       </div>
     </div>
