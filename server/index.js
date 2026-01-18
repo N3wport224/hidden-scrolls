@@ -14,32 +14,35 @@ app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('/api/proxy', (req, res) => {
   const { path: apiPath } = req.query;
   
-  // Clean the base URL from .env
+  // ABS BASE PATH DETECTED: /audiobookshelf
   const base = (process.env.ABS_BASE_URL || 'http://100.81.193.52:13378').replace(/\/+$/, '');
   const subPath = decodeURIComponent(apiPath).replace(/^\/+/, '');
+  
+  // Create the corrected URL with the base path
+  const fullUrl = `${base}/audiobookshelf/${subPath}`;
 
-  // The full internal URL
-  const fullUrl = `${base}/${subPath}`;
-  console.log(`[Proxy Request] Routing to: ${fullUrl}`);
+  console.log(`\n--- DEBUGGER LOG ---`);
+  console.log(`[Target URL]: ${fullUrl}`);
+  console.log(`[Range Req]: ${req.headers.range || 'None'}`);
 
   const options = {
     method: 'GET',
     headers: { 'Authorization': `Bearer ${process.env.ABS_API_TOKEN}` }
   };
 
-  // Forward Range headers for seeking/scrubbing
   if (req.headers.range) {
     options.headers['Range'] = req.headers.range;
   }
 
   const proxyReq = http.get(fullUrl, options, (proxyRes) => {
-    // If ABS returns an error, log it to the Pi terminal
-    if (proxyRes.statusCode >= 400) {
-      console.error(`[ABS Error] Status ${proxyRes.statusCode} for ${fullUrl}`);
+    console.log(`[ABS Response]: ${proxyRes.statusCode}`);
+
+    // If we still get a 404, we log a warning about the Base Path
+    if (proxyRes.statusCode === 404) {
+      console.error(`!! STILL 404: Verify if ABS expects /audiobookshelf/ or just /`);
     }
 
     res.status(proxyRes.statusCode);
-    
     const forwardHeaders = ['content-type', 'content-length', 'accept-ranges', 'content-range'];
     forwardHeaders.forEach(h => {
       if (proxyRes.headers[h]) res.setHeader(h, proxyRes.headers[h]);
@@ -58,4 +61,4 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
 
-app.listen(PORT, () => console.log(`🚀 Car Player V5: Pathfinder Active`));
+app.listen(PORT, () => console.log(`🚀 Smart Debugger active on port ${PORT}`));
