@@ -14,11 +14,12 @@ app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('/api/proxy', (req, res) => {
   const { path: apiPath } = req.query;
   
-  // FIXED: Use the full base URL from your .env file
+  // FIXED: Pull the full URL from .env
+  // This resolves the 404 by pointing to the correct Tailscale IP
   const ABS_TARGET = process.env.ABS_BASE_URL || 'http://100.81.193.52:13378';
   const fullUrl = `${ABS_TARGET}${decodeURIComponent(apiPath)}`;
 
-  console.log(`[Proxy] Routing request to: ${fullUrl}`);
+  console.log(`[Proxy] Routing to: ${fullUrl}`);
 
   const options = {
     method: 'GET',
@@ -31,7 +32,7 @@ app.get('/api/proxy', (req, res) => {
     options.headers['Range'] = req.headers.range;
   }
 
-  // Using native http/https request for binary stability
+  // Native http.get for binary stability
   const proxyReq = http.get(fullUrl, options, (proxyRes) => {
     res.status(proxyRes.statusCode);
     
@@ -53,4 +54,4 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
 
-app.listen(PORT, () => console.log(`🚀 Bulletproof Engine V3 active on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Car Player V3 Online`));
