@@ -7,7 +7,12 @@ require('dotenv').config();
 const app = express();
 const PORT = 3000;
 
-app.use(cors());
+// Enable wide CORS and expose headers ChatGPT mentioned
+app.use(cors({
+  origin: '*',
+  exposedHeaders: ['Content-Range', 'Accept-Ranges', 'Content-Length', 'Content-Type']
+}));
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
@@ -16,36 +21,38 @@ app.get('/api/proxy', (req, res) => {
   const base = (process.env.ABS_BASE_URL || 'http://100.81.193.52:13378').replace(/\/+$/, '');
   const subPath = decodeURIComponent(apiPath).replace(/^\/+/, '');
   
+  // Prepends mandatory base path
   const fullUrl = `${base}/audiobookshelf/${subPath}`;
 
   const options = {
     method: 'GET',
-    headers: { 'Authorization': `Bearer ${process.env.ABS_API_TOKEN}` }
+    headers: { 
+      'Authorization': `Bearer ${process.env.ABS_API_TOKEN}`,
+      // FORWARD RANGE HEADER: Critical for 206 responses
+      'Range': req.headers.range || ''
+    }
   };
 
-  if (req.headers.range) {
-    options.headers['Range'] = req.headers.range;
-  }
-
   const proxyReq = http.get(fullUrl, options, (proxyRes) => {
-    // DIAGNOSTIC LOGGING
-    console.log(`[ABS REQ]: ${fullUrl} | [STATUS]: ${proxyRes.statusCode}`);
+    // Log the diagnosis ChatGPT recommended
+    console.log(`[ABS REQ]: ${fullUrl}`);
+    console.log(`[ABS STATUS]: ${proxyRes.statusCode}`);
 
-    if (proxyRes.statusCode === 404 || proxyRes.statusCode === 403) {
-      console.error(`!! ERROR: Access Denied. Check EvaBooks User Permissions for 'Stream' !!`);
-    }
-
+    // Forward the 200 or 206 status code exactly as ABS sends it
     res.status(proxyRes.statusCode);
+
+    // Forward all critical media headers ChatGPT mentioned
     const forwardHeaders = ['content-type', 'content-length', 'accept-ranges', 'content-range'];
     forwardHeaders.forEach(h => {
       if (proxyRes.headers[h]) res.setHeader(h, proxyRes.headers[h]);
     });
 
+    // Directly pipe the binary stream to prevent buffering lag
     proxyRes.pipe(res, { end: true });
   });
 
   proxyReq.on('error', (e) => {
-    console.error(`[Connection Error]: ${e.message}`);
+    console.error(`[Proxy Error]: ${e.message}`);
     if (!res.headersSent) res.status(500).send("ABS Connection Failed");
   });
 });
@@ -54,4 +61,4 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
 
-app.listen(PORT, () => console.log(`🚀 Pro Engine V6: Permissions Check Active`));
+app.listen(PORT, () => console.log(`🚀 Pro Engine V8: Range Support Active`));
