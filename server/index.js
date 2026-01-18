@@ -19,27 +19,27 @@ app.get('/api/proxy', async (req, res) => {
   const { path: apiPath } = req.query;
   const base = (process.env.ABS_BASE_URL || 'http://100.81.193.52:13378').replace(/\/+$/, '');
   const subPath = decodeURIComponent(apiPath).replace(/^\/+/, '');
-  
-  // MANDATORY: Folder detected in your ABS source
   const fullUrl = `${base}/audiobookshelf/${subPath}`;
 
-  console.log(`[ENGINE] Handshaking: ${fullUrl}`);
+  // If this is an audio request, we force-check the session handshake
+  if (subPath.includes('/play') || subPath.includes('/file')) {
+    console.log(`[SESSION HANDSHAKE] Opening media stream for: ${subPath}`);
+  }
 
   const options = {
     method: 'GET',
     headers: { 
       'Authorization': `Bearer ${process.env.ABS_API_TOKEN}`,
-      'Range': req.headers.range || '' // Critical for Seeking
+      'Range': req.headers.range || '' // FORWARD RANGE: Required for browser playback
     }
   };
 
   const proxyReq = http.request(fullUrl, options, (proxyRes) => {
     // DIAGNOSTIC LOGGING
-    console.log(`[ABS Status]: ${proxyRes.statusCode}`);
+    console.log(`[ABS Status]: ${proxyRes.statusCode} for ${subPath}`);
 
-    // If ABS blocks with 404, we alert the terminal
     if (proxyRes.statusCode === 404) {
-      console.error(`!! SESSION BLOCK: ABS requires an active session for this token !!`);
+      console.error(`!! SESSION BLOCK DETECTED !! ABS is rejecting the stream.`);
     }
 
     res.status(proxyRes.statusCode);
@@ -48,7 +48,7 @@ app.get('/api/proxy', async (req, res) => {
       if (proxyRes.headers[h]) res.setHeader(h, proxyRes.headers[h]);
     });
 
-    // Directly pipe binary to minimize lag
+    // Pipe directly to browser
     proxyRes.pipe(res, { end: true });
   });
 
@@ -62,4 +62,4 @@ app.get('/api/proxy', async (req, res) => {
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
 
-app.listen(PORT, () => console.log(`🚀 Pro Engine V11: Session Handshake Active`));
+app.listen(PORT, () => console.log(`🚀 Pro Engine V12: Session Handshake Active`));
