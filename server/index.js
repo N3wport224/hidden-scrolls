@@ -18,9 +18,6 @@ app.get('/api/proxy', (req, res) => {
   
   const fullUrl = `${base}/audiobookshelf/${subPath}`;
 
-  console.log(`\n--- ENGINE DIAGNOSTIC ---`);
-  console.log(`[Target]: ${fullUrl}`);
-
   const options = {
     method: 'GET',
     headers: { 'Authorization': `Bearer ${process.env.ABS_API_TOKEN}` }
@@ -28,12 +25,16 @@ app.get('/api/proxy', (req, res) => {
 
   if (req.headers.range) {
     options.headers['Range'] = req.headers.range;
-    console.log(`[Status]: Streaming partial content (Range)`);
   }
 
   const proxyReq = http.get(fullUrl, options, (proxyRes) => {
-    console.log(`[Response]: ${proxyRes.statusCode}`);
-    
+    // DIAGNOSTIC LOGGING
+    console.log(`[ABS REQ]: ${fullUrl} | [STATUS]: ${proxyRes.statusCode}`);
+
+    if (proxyRes.statusCode === 404 || proxyRes.statusCode === 403) {
+      console.error(`!! ERROR: Access Denied. Check EvaBooks User Permissions for 'Stream' !!`);
+    }
+
     res.status(proxyRes.statusCode);
     const forwardHeaders = ['content-type', 'content-length', 'accept-ranges', 'content-range'];
     forwardHeaders.forEach(h => {
@@ -44,15 +45,13 @@ app.get('/api/proxy', (req, res) => {
   });
 
   proxyReq.on('error', (e) => {
-    console.error(`[Error]: ${e.message}`);
+    console.error(`[Connection Error]: ${e.message}`);
     if (!res.headersSent) res.status(500).send("ABS Connection Failed");
   });
-
-  proxyReq.end();
 });
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
 
-app.listen(PORT, () => console.log(`🚀 Smart Debugger active on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Pro Engine V6: Permissions Check Active`));
