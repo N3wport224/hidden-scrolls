@@ -2,18 +2,23 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchBookDetails, getProxyUrl } from '../lib/api';
 
+// Silent base64 audio to keep Bluetooth active during pauses
+const SILENT_AUDIO_SRC = "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD//////////////////////////////////////////////////////////////////wAAAAAATGF2YzU4LjU0AAAAAAAAAAAAAAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD//////////////////////////////////////////////////////////////////wAAAAAATGF2YzU4LjU0AAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
 export default function Player() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [book, setBook] = useState(null);
+  const [bluetoothMode, setBluetoothMode] = useState(false);
+  const [sleepTimer, setSleepTimer] = useState(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const audioRef = useRef(null);
+  const silentRef = useRef(null);
 
   useEffect(() => {
     fetchBookDetails(id).then(data => {
       setBook(data);
-      // Restore last saved position
       const savedTime = localStorage.getItem(`progress_${id}`);
       if (savedTime && audioRef.current) {
         audioRef.current.currentTime = parseFloat(savedTime);
@@ -21,30 +26,58 @@ export default function Player() {
     });
   }, [id]);
 
+  // Keep Bluetooth "alive" using silent audio track
+  useEffect(() => {
+    if (silentRef.current) {
+      bluetoothMode ? silentRef.current.play().catch(() => {}) : silentRef.current.pause();
+    }
+  }, [bluetoothMode]);
+
+  const cycleSleep = () => {
+    const opts = [null, 15, 30, 60];
+    const next = opts[(opts.indexOf(sleepTimer) + 1) % opts.length];
+    setSleepTimer(next);
+    if (next) {
+      setTimeout(() => {
+        if (audioRef.current) audioRef.current.pause();
+        setSleepTimer(null);
+      }, next * 60000);
+    }
+  };
+
   const formatTime = (s) => isNaN(s) ? "0:00:00" : new Date(s * 1000).toISOString().substr(11, 8);
 
-  if (!book) return <div className="min-h-screen bg-[#0f172a] text-cyan-400 flex items-center justify-center font-bold italic">LOADING HIDDEN SCROLL...</div>;
+  if (!book) return <div className="min-h-screen bg-[#0f172a] text-cyan-400 flex items-center justify-center font-bold italic">LOADING...</div>;
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-white flex flex-col items-center p-6 text-center">
-      <button onClick={() => navigate('/')} className="self-start bg-slate-800/50 p-3 rounded-xl mb-10">←</button>
+      <div className="w-full max-w-md flex justify-between mb-10">
+        <button onClick={() => navigate('/')} className="bg-slate-800/50 p-3 rounded-xl">←</button>
+        <button 
+          onClick={() => setBluetoothMode(!bluetoothMode)} 
+          className={`px-4 py-2 rounded-xl text-[10px] font-bold ${bluetoothMode ? 'bg-emerald-500 text-white' : 'bg-slate-800/50 text-slate-400'}`}
+        >
+          BT SILENCE: {bluetoothMode ? 'ON' : 'OFF'}
+        </button>
+      </div>
+
+      <audio ref={silentRef} src={SILENT_AUDIO_SRC} loop />
 
       <div className="aspect-[2/3] w-64 bg-slate-800 rounded-3xl shadow-2xl mb-8 overflow-hidden border border-white/5 mx-auto">
-        <img src={getProxyUrl(`/api/items/${id}/cover`)} className="w-full h-full object-cover" alt="Cover" />
+        <img src={getProxyUrl(`/api/items/${id}/cover`)} className="w-full h-full object-cover" />
       </div>
 
       <div className="w-full max-w-md bg-slate-800/40 backdrop-blur-md p-8 rounded-[40px] border border-white/5 shadow-xl">
         <h2 className="text-lg font-bold truncate mb-1 uppercase tracking-tight">{book.media?.metadata?.title}</h2>
         <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-8 italic">{book.media?.metadata?.authorName}</p>
 
-        {/* CAR-MODE CONTROLS: Large targets for driving */}
         <div className="flex justify-between items-center mb-8 px-4">
-          <button onClick={() => audioRef.current.currentTime -= 15} className="w-16 h-16 rounded-full border-2 border-cyan-400/30 text-cyan-400 flex items-center justify-center text-xl active:bg-cyan-400/20">↺</button>
-          <div className="flex flex-col items-center">
-             <div className="w-12 h-12 flex items-center justify-center rounded-full bg-slate-700/50 text-xl">⏲</div>
-             <span className="text-[9px] font-bold mt-2 text-slate-400 uppercase">Sleep</span>
-          </div>
-          <button onClick={() => audioRef.current.currentTime += 30} className="w-16 h-16 rounded-full border-2 border-cyan-400/30 text-cyan-400 flex items-center justify-center text-xl active:bg-cyan-400/20">↻</button>
+          <button onClick={() => audioRef.current.currentTime -= 15} className="w-16 h-16 rounded-full border-2 border-cyan-400/30 text-cyan-400 flex items-center justify-center text-xl">↺</button>
+          <button onClick={cycleSleep} className="flex flex-col items-center">
+            <div className={`w-12 h-12 flex items-center justify-center rounded-full ${sleepTimer ? 'bg-orange-500' : 'bg-slate-700/50'}`}>⏲</div>
+            <span className="text-[9px] font-bold mt-2 text-slate-400 uppercase">{sleepTimer ? `${sleepTimer}m` : 'Sleep'}</span>
+          </button>
+          <button onClick={() => audioRef.current.currentTime += 30} className="w-16 h-16 rounded-full border-2 border-cyan-400/30 text-cyan-400 flex items-center justify-center text-xl">↻</button>
         </div>
 
         <div className="flex justify-between px-2 mb-2 text-[12px] font-mono text-slate-500">
@@ -59,7 +92,6 @@ export default function Player() {
           onLoadedMetadata={(e) => setDuration(e.target.duration)}
           onTimeUpdate={(e) => {
             setCurrentTime(e.target.currentTime);
-            // Save current progress locally
             localStorage.setItem(`progress_${id}`, e.target.currentTime);
           }}
           src={getProxyUrl(`/api/items/${id}/file`)} 
