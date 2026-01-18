@@ -14,18 +14,21 @@ app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('/api/proxy', (req, res) => {
   const { path: apiPath } = req.query;
   
-  // SLASH GUARD: Clean the base URL and the incoming path
+  // Clean the base URL and subpath
   const base = (process.env.ABS_BASE_URL || 'http://100.81.193.52:13378').replace(/\/+$/, '');
-  const subPath = decodeURIComponent(apiPath).replace(/^\/+/, '');
-  const fullUrl = `${base}/${subPath}`;
+  let subPath = decodeURIComponent(apiPath).replace(/^\/+/, '');
 
-  console.log(`[Proxy] Routing to: ${fullUrl}`);
+  // ABS API FIX: If the client asks for /file, try /play for the stream
+  if (subPath.endsWith('/file')) {
+    subPath = subPath.replace('/file', '/play');
+  }
+
+  const fullUrl = `${base}/${subPath}`;
+  console.log(`[Proxy Request] Target: ${fullUrl}`);
 
   const options = {
     method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${process.env.ABS_API_TOKEN}`
-    }
+    headers: { 'Authorization': `Bearer ${process.env.ABS_API_TOKEN}` }
   };
 
   if (req.headers.range) {
@@ -33,13 +36,12 @@ app.get('/api/proxy', (req, res) => {
   }
 
   const proxyReq = http.get(fullUrl, options, (proxyRes) => {
-    // If ABS returns a 404 here, we log exactly what URL failed
-    if (proxyRes.statusCode === 404) {
-      console.error(`[ABS 404] Target not found: ${fullUrl}`);
+    // Log failures to the terminal for debugging
+    if (proxyRes.statusCode >= 400) {
+      console.error(`[ABS Error] Status: ${proxyRes.statusCode} for ${fullUrl}`);
     }
 
     res.status(proxyRes.statusCode);
-    
     const forwardHeaders = ['content-type', 'content-length', 'accept-ranges', 'content-range'];
     forwardHeaders.forEach(h => {
       if (proxyRes.headers[h]) res.setHeader(h, proxyRes.headers[h]);
@@ -58,4 +60,4 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
 
-app.listen(PORT, () => console.log(`🚀 Car Player V4: Connection Shield Active`));
+app.listen(PORT, () => console.log(`🚀 Car Player V5: Debug Mode Active`));
