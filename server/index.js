@@ -21,26 +21,42 @@ app.get('/api/proxy', async (req, res) => {
   const subPath = decodeURIComponent(apiPath).replace(/^\/+/, '');
   const fullUrl = `${base}/audiobookshelf/${subPath}`;
 
-  // If this is an audio request, we force-check the session handshake
-  if (subPath.includes('/play') || subPath.includes('/file')) {
-    console.log(`[SESSION HANDSHAKE] Opening media stream for: ${subPath}`);
+  // SESSION UNLOCK LOGIC: If requesting /play, we must ensure a session exists
+  if (subPath.includes('/play')) {
+    console.log(`[SESSION UNLOCK] Initializing stream for: ${subPath}`);
+    
+    // We send a hidden POST request to ABS to officially "Start" the playback session
+    const unlockPath = fullUrl.replace('/play', '');
+    const postData = JSON.stringify({ 
+      deviceInfo: { clientName: "CarPlayer", deviceId: "car-system-v1" },
+      forceDirectPlay: true 
+    });
+
+    const unlockReq = http.request(unlockPath, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.ABS_API_TOKEN}`,
+        'Content-Type': 'application/json',
+        'Content-Length': postData.length
+      }
+    });
+    unlockReq.write(postData);
+    unlockReq.end();
+    
+    // Give ABS a tiny moment to register the session before we pull the audio
+    await new Promise(resolve => setTimeout(resolve, 150));
   }
 
   const options = {
     method: 'GET',
     headers: { 
       'Authorization': `Bearer ${process.env.ABS_API_TOKEN}`,
-      'Range': req.headers.range || '' // FORWARD RANGE: Required for browser playback
+      'Range': req.headers.range || '' // FORWARD RANGE: Required for the browser to play
     }
   };
 
   const proxyReq = http.request(fullUrl, options, (proxyRes) => {
-    // DIAGNOSTIC LOGGING
     console.log(`[ABS Status]: ${proxyRes.statusCode} for ${subPath}`);
-
-    if (proxyRes.statusCode === 404) {
-      console.error(`!! SESSION BLOCK DETECTED !! ABS is rejecting the stream.`);
-    }
 
     res.status(proxyRes.statusCode);
     const forwardHeaders = ['content-type', 'content-length', 'accept-ranges', 'content-range'];
@@ -48,7 +64,6 @@ app.get('/api/proxy', async (req, res) => {
       if (proxyRes.headers[h]) res.setHeader(h, proxyRes.headers[h]);
     });
 
-    // Pipe directly to browser
     proxyRes.pipe(res, { end: true });
   });
 
@@ -62,4 +77,4 @@ app.get('/api/proxy', async (req, res) => {
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
 
-app.listen(PORT, () => console.log(`🚀 Pro Engine V12: Session Handshake Active`));
+app.listen(PORT, () => console.log(`🚀 Pro Engine V13: Auto-Session Unlock Active`));
