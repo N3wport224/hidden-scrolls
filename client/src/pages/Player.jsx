@@ -35,7 +35,7 @@ export default function Player() {
   }, [bluetoothMode]);
 
   const cycleSleep = () => {
-    const opts = [null, 15, 30, 60];
+    const opts = [null, 15, 30, 60, 90, 120];
     const next = opts[(opts.indexOf(sleepTimer) + 1) % opts.length];
     setSleepTimer(next);
     if (next) {
@@ -85,19 +85,31 @@ export default function Player() {
           <span>{formatTime(currentTime)}</span>
           <span>-{formatTime(duration - currentTime)}</span>
         </div>
-        
-        <audio 
-          ref={audioRef} 
-          controls 
-          className="w-full h-10 invert-[.9] opacity-80 mb-6"
-          onLoadedMetadata={(e) => setDuration(e.target.duration)}
-          onTimeUpdate={(e) => {
-            setCurrentTime(e.target.currentTime);
-            localStorage.setItem(`progress_${id}`, e.target.currentTime);
-          }}
-          // ADDED /play TO THE END OF THE ID
-          src={getProxyUrl(`/api/items/${id}/play`)} 
-        />
+
+          useEffect(() => {
+            if (audioRef.current && book) {
+              const savedTime = localStorage.getItem(`progress_${id}`);
+              if (savedTime) {
+                const handleMetadata = () => {
+                  audioRef.current.currentTime = parseFloat(savedTime);
+                  console.log(`[RESUME] Seeking to: ${savedTime}s`);
+                };
+                audioRef.current.addEventListener('loadedmetadata', handleMetadata, { once: true });
+              }
+            }
+          }, [id, book]);
+
+          <audio 
+            ref={audioRef} 
+            controls 
+            className="w-full h-10 invert-[.9] opacity-80 mb-6"
+            onTimeUpdate={(e) => {
+              setCurrentTime(e.target.currentTime);
+              // Save progress every second to localStorage
+              localStorage.setItem(`progress_${id}`, e.target.currentTime);
+            }}
+            src={getProxyUrl(`/api/items/${id}/play`)} 
+          />
 
         {book.media?.chapters?.length > 0 && (
           <select 
