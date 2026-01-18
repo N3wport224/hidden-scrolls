@@ -15,38 +15,36 @@ export default function Player() {
   const [duration, setDuration] = useState(0);
   const audioRef = useRef(null);
   const silentRef = useRef(null);
+  const isInitialLoad = useRef(true); // Flag to prevent looping
 
-  // 1. Fetch Book Details
+  // Fetch Book Details
   useEffect(() => {
     fetchBookDetails(id).then(data => {
       setBook(data);
     });
   }, [id]);
 
-  // 2. RESUME PLAY FEATURE: Runs once when the book metadata is ready
-  useEffect(() => {
-    if (audioRef.current && book) {
-      const savedTime = localStorage.getItem(`progress_${id}`);
-      if (savedTime) {
-        const handleMetadata = () => {
-          audioRef.current.currentTime = parseFloat(savedTime);
-          console.log(`[RESUME] Seeking to: ${savedTime}s`);
-        };
-        audioRef.current.addEventListener('loadedmetadata', handleMetadata, { once: true });
-      }
-    }
-  }, [id, !!book]);
-
-  // 3. Bluetooth Active Mode
+  // Bluetooth Silence Logic
   useEffect(() => {
     if (silentRef.current) {
       bluetoothMode ? silentRef.current.play().catch(() => {}) : silentRef.current.pause();
     }
   }, [bluetoothMode]);
 
-  // 4. Sleep Timer Cycle (Included 120m option)
+  // RESUME LOGIC: Set time once the browser followed the backend redirect
+  const handleCanPlay = () => {
+    if (isInitialLoad.current) {
+      const savedTime = localStorage.getItem(`progress_${id}`);
+      if (savedTime && audioRef.current) {
+        audioRef.current.currentTime = parseFloat(savedTime);
+        console.log(`[RESUME] Successfully jumped to: ${savedTime}s`);
+      }
+      isInitialLoad.current = false;
+    }
+  };
+
   const cycleSleep = () => {
-    const opts = [null, 15, 30, 60, 90, 120]; // Added 120 here
+    const opts = [null, 15, 30, 60, 90, 120]; // Added 120m option
     const next = opts[(opts.indexOf(sleepTimer) + 1) % opts.length];
     setSleepTimer(next);
     if (next) {
@@ -101,10 +99,10 @@ export default function Player() {
           ref={audioRef} 
           controls 
           className="w-full h-10 invert-[.9] opacity-80 mb-6"
+          onCanPlay={handleCanPlay} // CRITICAL: Only seeks when stream is ready
           onLoadedMetadata={(e) => setDuration(e.target.duration)}
           onTimeUpdate={(e) => {
             setCurrentTime(e.target.currentTime);
-            // Save progress locally every update
             localStorage.setItem(`progress_${id}`, e.target.currentTime);
           }}
           src={getProxyUrl(`/api/items/${id}/play`)} 
