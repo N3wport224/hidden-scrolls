@@ -16,26 +16,37 @@ export default function Player() {
   const audioRef = useRef(null);
   const silentRef = useRef(null);
 
+  // 1. Fetch Book Details
   useEffect(() => {
     fetchBookDetails(id).then(data => {
       setBook(data);
-      // Restore last saved position
-      const savedTime = localStorage.getItem(`progress_${id}`);
-      if (savedTime && audioRef.current) {
-        audioRef.current.currentTime = parseFloat(savedTime);
-      }
     });
   }, [id]);
 
-  // Keep Bluetooth active using the silent track
+  // 2. RESUME PLAY FEATURE: Runs once when the book metadata is ready
+  useEffect(() => {
+    if (audioRef.current && book) {
+      const savedTime = localStorage.getItem(`progress_${id}`);
+      if (savedTime) {
+        const handleMetadata = () => {
+          audioRef.current.currentTime = parseFloat(savedTime);
+          console.log(`[RESUME] Seeking to: ${savedTime}s`);
+        };
+        audioRef.current.addEventListener('loadedmetadata', handleMetadata, { once: true });
+      }
+    }
+  }, [id, !!book]);
+
+  // 3. Bluetooth Active Mode
   useEffect(() => {
     if (silentRef.current) {
       bluetoothMode ? silentRef.current.play().catch(() => {}) : silentRef.current.pause();
     }
   }, [bluetoothMode]);
 
+  // 4. Sleep Timer Cycle (Included 120m option)
   const cycleSleep = () => {
-    const opts = [null, 15, 30, 60, 90, 120];
+    const opts = [null, 15, 30, 60, 90, 120]; // Added 120 here
     const next = opts[(opts.indexOf(sleepTimer) + 1) % opts.length];
     setSleepTimer(next);
     if (next) {
@@ -86,30 +97,18 @@ export default function Player() {
           <span>-{formatTime(duration - currentTime)}</span>
         </div>
 
-          useEffect(() => {
-            if (audioRef.current && book) {
-              const savedTime = localStorage.getItem(`progress_${id}`);
-              if (savedTime) {
-                const handleMetadata = () => {
-                  audioRef.current.currentTime = parseFloat(savedTime);
-                  console.log(`[RESUME] Seeking to: ${savedTime}s`);
-                };
-                audioRef.current.addEventListener('loadedmetadata', handleMetadata, { once: true });
-              }
-            }
-          }, [id, book]);
-
-          <audio 
-            ref={audioRef} 
-            controls 
-            className="w-full h-10 invert-[.9] opacity-80 mb-6"
-            onTimeUpdate={(e) => {
-              setCurrentTime(e.target.currentTime);
-              // Save progress every second to localStorage
-              localStorage.setItem(`progress_${id}`, e.target.currentTime);
-            }}
-            src={getProxyUrl(`/api/items/${id}/play`)} 
-          />
+        <audio 
+          ref={audioRef} 
+          controls 
+          className="w-full h-10 invert-[.9] opacity-80 mb-6"
+          onLoadedMetadata={(e) => setDuration(e.target.duration)}
+          onTimeUpdate={(e) => {
+            setCurrentTime(e.target.currentTime);
+            // Save progress locally every update
+            localStorage.setItem(`progress_${id}`, e.target.currentTime);
+          }}
+          src={getProxyUrl(`/api/items/${id}/play`)} 
+        />
 
         {book.media?.chapters?.length > 0 && (
           <select 
