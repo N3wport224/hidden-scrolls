@@ -29,7 +29,7 @@ app.get('/api/proxy', async (req, res) => {
     method: 'GET',
     headers: { 
       'Authorization': `Bearer ${process.env.ABS_API_TOKEN}`,
-      'Range': req.headers.range || '' 
+      'Range': req.headers.range || '' // Critical for 206 Partial Content
     }
   };
 
@@ -48,6 +48,7 @@ app.get('/api/proxy', async (req, res) => {
       if (proxyRes.headers[h]) res.setHeader(h, proxyRes.headers[h]);
     });
 
+    // Pipe binary stream directly to minimize buffering lag
     proxyRes.pipe(res, { end: true });
   });
 
