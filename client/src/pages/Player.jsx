@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchBookDetails, getProxyUrl } from '../lib/api';
 
-// Silent base64 audio to keep Bluetooth active during pauses
+// Silent audio track to keep car Bluetooth active during pauses
 const SILENT_AUDIO_SRC = "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD//////////////////////////////////////////////////////////////////wAAAAAATGF2YzU4LjU0AAAAAAAAAAAAAAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD//////////////////////////////////////////////////////////////////wAAAAAATGF2YzU4LjU0AAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
 export default function Player() {
@@ -19,6 +19,7 @@ export default function Player() {
   useEffect(() => {
     fetchBookDetails(id).then(data => {
       setBook(data);
+      // Restore last saved position
       const savedTime = localStorage.getItem(`progress_${id}`);
       if (savedTime && audioRef.current) {
         audioRef.current.currentTime = parseFloat(savedTime);
@@ -26,7 +27,7 @@ export default function Player() {
     });
   }, [id]);
 
-  // Keep Bluetooth "alive" using silent audio track
+  // Keep Bluetooth active using the silent track
   useEffect(() => {
     if (silentRef.current) {
       bluetoothMode ? silentRef.current.play().catch(() => {}) : silentRef.current.pause();
@@ -47,15 +48,15 @@ export default function Player() {
 
   const formatTime = (s) => isNaN(s) ? "0:00:00" : new Date(s * 1000).toISOString().substr(11, 8);
 
-  if (!book) return <div className="min-h-screen bg-[#0f172a] text-cyan-400 flex items-center justify-center font-bold italic">LOADING...</div>;
+  if (!book) return <div className="min-h-screen bg-[#0f172a] text-cyan-400 flex items-center justify-center font-bold italic">RESTORING SCROLL...</div>;
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-white flex flex-col items-center p-6 text-center">
       <div className="w-full max-w-md flex justify-between mb-10">
-        <button onClick={() => navigate('/')} className="bg-slate-800/50 p-3 rounded-xl">←</button>
+        <button onClick={() => navigate('/')} className="bg-slate-800/50 p-3 rounded-xl active:scale-95 transition-transform">←</button>
         <button 
           onClick={() => setBluetoothMode(!bluetoothMode)} 
-          className={`px-4 py-2 rounded-xl text-[10px] font-bold ${bluetoothMode ? 'bg-emerald-500 text-white' : 'bg-slate-800/50 text-slate-400'}`}
+          className={`px-4 py-2 rounded-xl text-[10px] font-bold transition-all ${bluetoothMode ? 'bg-emerald-500 text-white' : 'bg-slate-800/50 text-slate-400'}`}
         >
           BT SILENCE: {bluetoothMode ? 'ON' : 'OFF'}
         </button>
@@ -64,7 +65,7 @@ export default function Player() {
       <audio ref={silentRef} src={SILENT_AUDIO_SRC} loop />
 
       <div className="aspect-[2/3] w-64 bg-slate-800 rounded-3xl shadow-2xl mb-8 overflow-hidden border border-white/5 mx-auto">
-        <img src={getProxyUrl(`/api/items/${id}/cover`)} className="w-full h-full object-cover" />
+        <img src={getProxyUrl(`/api/items/${id}/cover`)} className="w-full h-full object-cover" alt="Cover" />
       </div>
 
       <div className="w-full max-w-md bg-slate-800/40 backdrop-blur-md p-8 rounded-[40px] border border-white/5 shadow-xl">
@@ -72,12 +73,12 @@ export default function Player() {
         <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-8 italic">{book.media?.metadata?.authorName}</p>
 
         <div className="flex justify-between items-center mb-8 px-4">
-          <button onClick={() => audioRef.current.currentTime -= 15} className="w-16 h-16 rounded-full border-2 border-cyan-400/30 text-cyan-400 flex items-center justify-center text-xl">↺</button>
+          <button onClick={() => audioRef.current.currentTime -= 15} className="w-16 h-16 rounded-full border-2 border-cyan-400/30 text-cyan-400 flex items-center justify-center text-xl active:bg-cyan-400/20">↺</button>
           <button onClick={cycleSleep} className="flex flex-col items-center">
-            <div className={`w-12 h-12 flex items-center justify-center rounded-full ${sleepTimer ? 'bg-orange-500' : 'bg-slate-700/50'}`}>⏲</div>
-            <span className="text-[9px] font-bold mt-2 text-slate-400 uppercase">{sleepTimer ? `${sleepTimer}m` : 'Sleep'}</span>
+            <div className={`w-12 h-12 flex items-center justify-center rounded-full transition-all ${sleepTimer ? 'bg-orange-500' : 'bg-slate-700/50'}`}>⏲</div>
+            <span className="text-[9px] font-bold mt-2 text-slate-400 uppercase tracking-tighter">{sleepTimer ? `${sleepTimer}m` : 'Sleep'}</span>
           </button>
-          <button onClick={() => audioRef.current.currentTime += 30} className="w-16 h-16 rounded-full border-2 border-cyan-400/30 text-cyan-400 flex items-center justify-center text-xl">↻</button>
+          <button onClick={() => audioRef.current.currentTime += 30} className="w-16 h-16 rounded-full border-2 border-cyan-400/30 text-cyan-400 flex items-center justify-center text-xl active:bg-cyan-400/20">↻</button>
         </div>
 
         <div className="flex justify-between px-2 mb-2 text-[12px] font-mono text-slate-500">
@@ -92,6 +93,7 @@ export default function Player() {
           onLoadedMetadata={(e) => setDuration(e.target.duration)}
           onTimeUpdate={(e) => {
             setCurrentTime(e.target.currentTime);
+            // Save progress locally
             localStorage.setItem(`progress_${id}`, e.target.currentTime);
           }}
           src={getProxyUrl(`/api/items/${id}/file`)} 
