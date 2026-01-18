@@ -93,10 +93,10 @@ export default function Player() {
           onLoadedMetadata={(e) => setDuration(e.target.duration)}
           onTimeUpdate={(e) => {
             setCurrentTime(e.target.currentTime);
-            // Save progress locally
             localStorage.setItem(`progress_${id}`, e.target.currentTime);
           }}
-          src={getProxyUrl(`/api/items/${id}/file`)} 
+          // ADDED /play TO THE END OF THE ID
+          src={getProxyUrl(`/api/items/${id}/play`)} 
         />
 
         {book.media?.chapters?.length > 0 && (

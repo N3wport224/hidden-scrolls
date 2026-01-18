@@ -13,17 +13,13 @@ app.use(express.static(path.join(__dirname, '../client/dist')));
 
 app.get('/api/proxy', (req, res) => {
   const { path: apiPath } = req.query;
-  
-  // ABS BASE PATH DETECTED: /audiobookshelf
   const base = (process.env.ABS_BASE_URL || 'http://100.81.193.52:13378').replace(/\/+$/, '');
   const subPath = decodeURIComponent(apiPath).replace(/^\/+/, '');
   
-  // FIXED: Prepends the folder path found in your ABS source code
   const fullUrl = `${base}/audiobookshelf/${subPath}`;
 
-  console.log(`\n--- DEBUGGER LOG ---`);
-  console.log(`[Target URL]: ${fullUrl}`);
-  console.log(`[Range Req]: ${req.headers.range || 'None'}`);
+  console.log(`\n--- ENGINE DIAGNOSTIC ---`);
+  console.log(`[Target]: ${fullUrl}`);
 
   const options = {
     method: 'GET',
@@ -32,10 +28,11 @@ app.get('/api/proxy', (req, res) => {
 
   if (req.headers.range) {
     options.headers['Range'] = req.headers.range;
+    console.log(`[Status]: Streaming partial content (Range)`);
   }
 
   const proxyReq = http.get(fullUrl, options, (proxyRes) => {
-    console.log(`[ABS Response]: ${proxyRes.statusCode}`);
+    console.log(`[Response]: ${proxyRes.statusCode}`);
     
     res.status(proxyRes.statusCode);
     const forwardHeaders = ['content-type', 'content-length', 'accept-ranges', 'content-range'];
@@ -47,7 +44,7 @@ app.get('/api/proxy', (req, res) => {
   });
 
   proxyReq.on('error', (e) => {
-    console.error(`[Proxy Connection Error]: ${e.message}`);
+    console.error(`[Error]: ${e.message}`);
     if (!res.headersSent) res.status(500).send("ABS Connection Failed");
   });
 
