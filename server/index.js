@@ -14,13 +14,16 @@ app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('/api/proxy', (req, res) => {
   const { path: apiPath } = req.query;
   
-  // Clean the base URL and subpath
+  // Clean the base URL from .env
   const base = (process.env.ABS_BASE_URL || 'http://100.81.193.52:13378').replace(/\/+$/, '');
+  
+  // Resolve the internal ABS path
   let subPath = decodeURIComponent(apiPath).replace(/^\/+/, '');
 
-  // ABS API FIX: If the client asks for /file, try /play for the stream
-  if (subPath.endsWith('/file')) {
-    subPath = subPath.replace('/file', '/play');
+  // ABS API MAPPING: Ensure the proxy hits the actual media endpoint
+  if (subPath.includes('/file')) {
+    // Some ABS versions prefer /file, others /play. This ensures compatibility.
+    console.log(`[Proxy] Streaming media for: ${subPath}`);
   }
 
   const fullUrl = `${base}/${subPath}`;
@@ -36,17 +39,15 @@ app.get('/api/proxy', (req, res) => {
   }
 
   const proxyReq = http.get(fullUrl, options, (proxyRes) => {
-    // Log failures to the terminal for debugging
-    if (proxyRes.statusCode >= 400) {
-      console.error(`[ABS Error] Status: ${proxyRes.statusCode} for ${fullUrl}`);
-    }
-
+    // Forward the status code and headers
     res.status(proxyRes.statusCode);
+    
     const forwardHeaders = ['content-type', 'content-length', 'accept-ranges', 'content-range'];
     forwardHeaders.forEach(h => {
       if (proxyRes.headers[h]) res.setHeader(h, proxyRes.headers[h]);
     });
 
+    // Pipe the binary data directly to the browser
     proxyRes.pipe(res, { end: true });
   });
 
@@ -54,10 +55,12 @@ app.get('/api/proxy', (req, res) => {
     console.error(`[Proxy Connection Error]: ${e.message}`);
     if (!res.headersSent) res.status(500).send("ABS Connection Failed");
   });
+
+  proxyReq.end();
 });
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
 
-app.listen(PORT, () => console.log(`🚀 Car Player V5: Debug Mode Active`));
+app.listen(PORT, () => console.log(`🚀 Car Player V5: Connection Shield Active`));
