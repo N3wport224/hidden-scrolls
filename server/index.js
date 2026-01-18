@@ -14,10 +14,10 @@ app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('/api/proxy', (req, res) => {
   const { path: apiPath } = req.query;
   
-  // FIXED: Pull the full URL from .env
-  // This resolves the 404 by pointing to the correct Tailscale IP
-  const ABS_TARGET = process.env.ABS_BASE_URL || 'http://100.81.193.52:13378';
-  const fullUrl = `${ABS_TARGET}${decodeURIComponent(apiPath)}`;
+  // SLASH GUARD: Clean the base URL and the incoming path
+  const base = (process.env.ABS_BASE_URL || 'http://100.81.193.52:13378').replace(/\/+$/, '');
+  const subPath = decodeURIComponent(apiPath).replace(/^\/+/, '');
+  const fullUrl = `${base}/${subPath}`;
 
   console.log(`[Proxy] Routing to: ${fullUrl}`);
 
@@ -32,8 +32,12 @@ app.get('/api/proxy', (req, res) => {
     options.headers['Range'] = req.headers.range;
   }
 
-  // Native http.get for binary stability
   const proxyReq = http.get(fullUrl, options, (proxyRes) => {
+    // If ABS returns a 404 here, we log exactly what URL failed
+    if (proxyRes.statusCode === 404) {
+      console.error(`[ABS 404] Target not found: ${fullUrl}`);
+    }
+
     res.status(proxyRes.statusCode);
     
     const forwardHeaders = ['content-type', 'content-length', 'accept-ranges', 'content-range'];
@@ -54,4 +58,4 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
 
-app.listen(PORT, () => console.log(`🚀 Car Player V3 Online`));
+app.listen(PORT, () => console.log(`🚀 Car Player V4: Connection Shield Active`));
