@@ -8,10 +8,13 @@ export const fetchBookDetails = async (id) => {
   return response.json();
 };
 
-// Now accepts libraryId as a parameter
+// Fetch books for a specific Library ID
 export const fetchLibrary = async (libraryId) => {
   const booksUrl = getProxyUrl(`/api/libraries/${libraryId}/items`);
   const response = await fetch(booksUrl);
+  
+  if (!response.ok) throw new Error("Library not found");
+  
   const data = await response.json();
   return data.results || [];
 };
