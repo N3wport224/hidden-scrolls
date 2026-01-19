@@ -8,8 +8,8 @@ export default function Home() {
   
   // PASTE YOUR REAL IDS FROM THE DASHBOARD HERE
   const LIBRARIES = {
-     EVA: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJmNWUzYTE4ZC0wMjkxLTQ5NzMtOTc0ZS0zYzczNTNiNjY0MjYiLCJ1c2VybmFtZSI6IkV2YUJvb2tzIiwiaWF0IjoxNzU0NjM5MDM0fQ.91Y5e0Smif-9sDwHMveWCUrnUKbd98eBAD7K8y7Uc4Q", 
-    ANDREW: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJhNDQ0YTA3ZC05NjQ2LTQ1NjAtOGM2Ny0zZDYzMjRkZWYzOTIiLCJ1c2VybmFtZSI6IkFuZHJld0Jvb2tzIiwiaWF0IjoxNzY4NzU5NDAyfQ.KcMuyDuNrUKM4qArkDgJpy2ci3SYmUVD83tDcsrNdzc"
+     EVA: "575767a4-d45d-466c-8295-8766aa060b44", 
+    ANDREW: "0ba1af4e-3bc0-4192-9d2d-dc9811e5f6e5"
   };
 
   const [activeLib, setActiveLib] = useState(localStorage.getItem('active_lib') || LIBRARIES.EVA);
