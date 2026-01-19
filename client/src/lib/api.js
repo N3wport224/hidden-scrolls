@@ -1,21 +1,17 @@
 export const getProxyUrl = (path) => {
-  return `http://100.81.193.52:3000/api/proxy?path=${encodeURIComponent(path)}`;
+  return `/api/proxy?path=${encodeURIComponent(path)}`;
 };
 
-export async function fetchLibrary() {
-  const response = await fetch(getProxyUrl('/api/libraries'));
+export const fetchBookDetails = async (id) => {
+  const url = getProxyUrl(`/api/items/${id}`);
+  const response = await fetch(url);
+  return response.json();
+};
+
+// Now accepts libraryId as a parameter
+export const fetchLibrary = async (libraryId) => {
+  const booksUrl = getProxyUrl(`/api/libraries/${libraryId}/items`);
+  const response = await fetch(booksUrl);
   const data = await response.json();
-  const libraries = data.libraries || data;
-  const libId = libraries[0]?.id;
-  if (!libId) return [];
-
-  const itemsRes = await fetch(getProxyUrl(`/api/libraries/${libId}/items`));
-  const itemsData = await itemsRes.json();
-  return itemsData.results || [];
-}
-
-export async function fetchBookDetails(id) {
-  const response = await fetch(getProxyUrl(`/api/items/${id}`));
-  if (!response.ok) return null;
-  return await response.json();
-}
+  return data.results || [];
+};
