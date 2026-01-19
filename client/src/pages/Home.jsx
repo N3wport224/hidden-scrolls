@@ -6,9 +6,9 @@ export default function Home() {
   const navigate = useNavigate();
   const [books, setBooks] = useState([]);
   
-  // REPLACE THESE WITH YOUR ACTUAL IDS FROM ABS DASHBOARD
+  // PASTE YOUR REAL IDS FROM THE DASHBOARD HERE
   const LIBRARIES = {
-    EVA: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJmNWUzYTE4ZC0wMjkxLTQ5NzMtOTc0ZS0zYzczNTNiNjY0MjYiLCJ1c2VybmFtZSI6IkV2YUJvb2tzIiwiaWF0IjoxNzU0NjM5MDM0fQ.91Y5e0Smif-9sDwHMveWCUrnUKbd98eBAD7K8y7Uc4Q", 
+     EVA: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJmNWUzYTE4ZC0wMjkxLTQ5NzMtOTc0ZS0zYzczNTNiNjY0MjYiLCJ1c2VybmFtZSI6IkV2YUJvb2tzIiwiaWF0IjoxNzU0NjM5MDM0fQ.91Y5e0Smif-9sDwHMveWCUrnUKbd98eBAD7K8y7Uc4Q", 
     ANDREW: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJhNDQ0YTA3ZC05NjQ2LTQ1NjAtOGM2Ny0zZDYzMjRkZWYzOTIiLCJ1c2VybmFtZSI6IkFuZHJld0Jvb2tzIiwiaWF0IjoxNzY4NzU5NDAyfQ.KcMuyDuNrUKM4qArkDgJpy2ci3SYmUVD83tDcsrNdzc"
   };
 
@@ -16,7 +16,10 @@ export default function Home() {
 
   useEffect(() => {
     localStorage.setItem('active_lib', activeLib);
-    fetchLibrary(activeLib).then(setBooks);
+    // Fetch books only for the selected library
+    fetchLibrary(activeLib)
+      .then(setBooks)
+      .catch(err => console.error("Library Switch Error:", err));
   }, [activeLib]);
 
   return (
@@ -52,7 +55,7 @@ export default function Home() {
       </header>
 
       <div className="grid grid-cols-2 gap-6 max-w-4xl mx-auto">
-        {books.map((book) => (
+        {books.length > 0 ? books.map((book) => (
           <div 
             key={book.id} 
             onClick={() => navigate(`/player/${book.id}`)}
@@ -71,7 +74,11 @@ export default function Home() {
               </h3>
             </div>
           </div>
-        ))}
+        )) : (
+          <div className="col-span-2 text-slate-600 text-[10px] uppercase font-bold italic text-center mt-20">
+            Scanning archives...
+          </div>
+        )}
       </div>
     </div>
   );
